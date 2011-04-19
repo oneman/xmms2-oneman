@@ -214,7 +214,8 @@ typedef enum {
 typedef enum {
 	XMMS_PLUGIN_TYPE_ALL,
 	XMMS_PLUGIN_TYPE_OUTPUT,
-	XMMS_PLUGIN_TYPE_XFORM
+	XMMS_PLUGIN_TYPE_XFORM,
+	XMMS_PLUGIN_TYPE_TRANSITION
 } xmms_plugin_type_t;
 
 typedef enum {

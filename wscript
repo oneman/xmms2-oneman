@@ -230,7 +230,7 @@ def _configure_plugins(conf):
 
 def _output_summary(enabled_plugins, disabled_plugins,
                     enabled_optionals, disabled_optionals,
-                    output_plugins):
+                    output_plugins, transition_plugins):
     Utils.pprint('Normal', "\nOptional configuration:\n======================")
     Utils.pprint('Normal', "Enabled: ", sep='')
     Utils.pprint('BLUE', ', '.join(sorted(enabled_optionals)))
@@ -238,10 +238,12 @@ def _output_summary(enabled_plugins, disabled_plugins,
     Utils.pprint('BLUE', ", ".join(sorted(disabled_optionals)))
     Utils.pprint('Normal', "\nPlugins configuration:\n======================")
 
-    enabled_plugins = [x for x in enabled_plugins if x not in output_plugins]
+    enabled_plugins = [x for x in enabled_plugins if x not in output_plugins + transition_plugins]
 
     Utils.pprint('Normal', "Output:")
     Utils.pprint('BLUE', ", ".join(sorted(output_plugins)))
+    Utils.pprint('Normal', "Transition:")
+    Utils.pprint('BLUE', ", ".join(sorted(transition_plugins)))
     Utils.pprint('Normal', "XForm/Other:")
     Utils.pprint('BLUE', ", ".join(sorted(enabled_plugins)))
     Utils.pprint('Normal', "Disabled:")
@@ -302,6 +304,7 @@ def configure(conf):
     conf.env["CXXFLAGS"] = Utils.to_list(conf.env["CXXFLAGS"]) + ['-g', '-O0']
     conf.env['XMMS_PKGCONF_FILES'] = []
     conf.env['XMMS_OUTPUT_PLUGINS'] = [(-1, "NONE")]
+    conf.env['XMMS_TRANSITION_PLUGINS'] = []
 
     if Options.options.pkgconfigdir:
         conf.env['PKGCONFIGDIR'] = Options.options.pkgconfigdir
@@ -430,10 +433,11 @@ def configure(conf):
     conf.write_config_header('xmms_configuration.h')
 
     output_plugins = [name for x,name in conf.env["XMMS_OUTPUT_PLUGINS"] if x > 0]
+    transition_plugins = conf.env["XMMS_TRANSITION_PLUGINS"]
 
     _output_summary(enabled_plugins, disabled_plugins,
                     enabled_optionals, disabled_optionals,
-                    output_plugins)
+                    output_plugins, transition_plugins)
 
     return True
 

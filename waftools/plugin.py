@@ -4,12 +4,14 @@
 
 def plugin(name, source=None, configure=False, build=False,
            build_replace=False, libs=[],
-           tool='cc', broken=False, output_prio=None):
+           tool='cc', broken=False, output_prio=None, transition=False):
     def stock_configure(conf):
         if broken:
             conf.check_message_custom('%s plugin' % name, '',
                                       'disabled (broken)')
             return
+        if transition:
+            conf.env.append_value('XMMS_TRANSITION_PLUGINS', name)
         if configure and not configure(conf):
             return
         conf.env.append_value('XMMS_PLUGINS_ENABLED', name)

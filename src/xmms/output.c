@@ -26,6 +26,7 @@
 #include "xmmspriv/xmms_ringbuf.h"
 #include "xmmspriv/xmms_plugin.h"
 #include "xmmspriv/xmms_xform.h"
+#include "xmmspriv/xmms_transition.h"
 #include "xmmspriv/xmms_sample.h"
 #include "xmmspriv/xmms_medialib.h"
 #include "xmmspriv/xmms_outputplugin.h"
@@ -106,6 +107,8 @@ struct xmms_output_St {
 
 	xmms_output_plugin_t *plugin;
 	gpointer plugin_data;
+	
+	xmms_transitions_t *transitions;
 
 	/* */
 	GMutex *playtime_mutex;
@@ -872,6 +875,8 @@ xmms_output_destroy (xmms_object_t *object)
 
 	xmms_object_unref (output->playlist);
 
+	xmms_transitions_destroy (output->transitions);
+
 	g_mutex_free (output->status_mutex);
 	g_mutex_free (output->playtime_mutex);
 	g_mutex_free (output->filler_mutex);
@@ -957,6 +962,8 @@ xmms_output_new (xmms_output_plugin_t *plugin, xmms_playlist_t *playlist)
 	xmms_playback_register_ipc_commands (XMMS_OBJECT (output));
 
 	output->status = XMMS_PLAYBACK_STATUS_STOP;
+	
+	output->transitions = xmms_transitions_new ();
 
 	if (plugin) {
 		if (!set_plugin (output, plugin)) {

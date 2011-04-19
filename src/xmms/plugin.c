@@ -22,6 +22,7 @@
 #include "xmms/xmms_log.h"
 #include "xmmspriv/xmms_playlist.h"
 #include "xmmspriv/xmms_outputplugin.h"
+#include "xmmspriv/xmms_transitionplugin.h"
 #include "xmmspriv/xmms_xform.h"
 
 #include <gmodule.h>
@@ -280,6 +281,11 @@ xmms_plugin_load (const xmms_plugin_desc_t *desc, GModule *module)
 		expected_ver = XMMS_OUTPUT_API_VERSION;
 		allocer = xmms_output_plugin_new;
 		verifier = xmms_output_plugin_verify;
+		break;
+	case XMMS_PLUGIN_TYPE_TRANSITION:
+		expected_ver = XMMS_TRANSITION_API_VERSION;
+		allocer = xmms_transition_plugin_new;
+		verifier = xmms_transition_plugin_verify;
 		break;
 	case XMMS_PLUGIN_TYPE_XFORM:
 		expected_ver = XMMS_XFORM_API_VERSION;

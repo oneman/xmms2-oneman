@@ -26,6 +26,8 @@ source = """
     plugin.c
     magic.c
     ringbuf.c
+    transition.c
+    transitionplugin.c
     xform.c
     streamtype.c
     converter_plugin.c
