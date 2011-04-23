@@ -30,7 +30,11 @@ struct xmms_transition_St {
 	gpointer plugin_data;
 	gint duration;
 	gint frames;
-	gboolean enabled;
+	gboolean enabled; /* only for top level */
+	xmms_transition_t *next;
+	/* dual source only */
+	xmms_transition_t *in;
+	xmms_transition_t *out;
 
 };
 
@@ -45,7 +49,7 @@ static void xmms_transition_remove (xmms_transition_t *transition);
 static xmms_transition_t *xmms_transition_new (xmms_transition_plugin_t *plugin);
 static void xmms_transition_destroy (xmms_transition_t *transition);
 
-
+static gboolean xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t *transition);
 
 
 gpointer
@@ -117,19 +121,19 @@ xmms_transitions_new ()
 
 	for(t = 0; t < 7; t++) {
 	
-		for (stack_no = 0; TRUE; stack_no++) {
-
-			g_snprintf (key, sizeof (key), "transition.%s.%i", transition_strings[t], stack_no);
+		// Single Source starting/stopping/pausing/resuming
+		if (t < 4) { 
 		
-			if ((!stack_no)) {
-				xmms_config_property_register (key, "", update_transitions_config,
-			                               NULL);
-			}
+			for (stack_no = 0; TRUE; stack_no++) {
 
-			cfg = xmms_config_lookup (key);
-			
-			// Single Source starting/stopping/pausing/resuming
-			if (t < 4) { 
+				g_snprintf (key, sizeof (key), "transition.%s.%i", transition_strings[t], stack_no);
+		
+				if (stack_no) {
+					xmms_config_property_register (key, "", update_transitions_config,
+				                               NULL);
+				}
+
+				cfg = xmms_config_lookup (key);
 
 				if (!cfg) {
 					// no config exists
@@ -157,16 +161,22 @@ xmms_transitions_new ()
 					transitions->transitions[t] = xmms_transition_new(NULL);
 					break;
 				} else {
-					transitions->transitions[t] = xmms_transition_new(plugin);
+					if (stack_no == 0) { 
+						transitions->transitions[t] = xmms_transition_new(plugin);
+					} else {
+						xmms_transition_add_plugin (plugin, transitions->transitions[t]);
+					}
 					XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_strings[t], stack_no);
 				}
-		
-			} else {
-				// Dual Source Seeking, Jumping Advancing
-				XMMS_DBG ("Skipping dual source %s transition", transition_strings[t]);
-				break;
+				
 			}
+		
+		} else {
+			// Dual Source Seeking, Jumping Advancing
+			XMMS_DBG ("Skipping dual source %s transition", transition_strings[t]);	
+
 		}
+	
 	}
 
 	XMMS_DBG ("Transitions setup complete");
@@ -206,7 +216,38 @@ xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transi
 	return transition;
 
 }
- 
+
+
+// this adds a plugin to a transition going down the stack
+static gboolean
+xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t *transition)
+{
+	
+	XMMS_DBG ("Adding transition");
+
+	if (transition->plugin == NULL) {
+
+		transition->plugin = plugin;
+
+		xmms_transition_plugin_method_new (plugin, transition);
+
+		transition->enabled = true;
+
+		return TRUE;
+	} else {
+		if (transition->next == NULL) {
+			transition->next = xmms_transition_new (plugin);
+			return TRUE;
+		} else {
+			xmms_transition_add_plugin (plugin, transition->next);
+		}
+	}
+	
+	return FALSE;
+
+}
+
+
 static void
 xmms_transition_remove (xmms_transition_t *transition)
 {
