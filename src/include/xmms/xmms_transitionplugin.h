@@ -84,7 +84,7 @@ typedef struct xmms_transition_methods_St {
 	 * @param size the number of bytes in the buffer
 	 * @param err an error struct
 	 */
-	void (*process)(xmms_transition_t *transition, gpointer buffer,
+	int (*process)(xmms_transition_t *transition, gpointer buffer,
 	              gint len, xmms_error_t *err);
 
 } xmms_transition_methods_t;
