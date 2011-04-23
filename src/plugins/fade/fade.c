@@ -97,7 +97,6 @@ xmms_fade_destroy (xmms_transition_t *transition)
 {
 
 	XMMS_DBG ("Fade Plugin Method Destroy Called");
-	return TRUE;
 
 }
 

@@ -29,7 +29,7 @@ struct xmms_transition_plugin_St {
 static void
 xmms_transition_plugin_destroy (xmms_object_t *obj)
 {
-	xmms_transition_plugin_t *plugin = (xmms_transition_plugin_t *)obj;
+	/* xmms_transition_plugin_t *plugin = (xmms_transition_plugin_t *)obj; */
 
 	xmms_plugin_destroy ((xmms_plugin_t *)obj);
 }
@@ -127,9 +127,9 @@ gboolean xmms_transition_plugin_method_process (xmms_transition_plugin_t *plugin
                                                gpointer buffer, gint len, xmms_error_t *err)
 {
 
-	g_return_if_fail (transition);
-	g_return_if_fail (plugin);
+	g_return_val_if_fail (transition, FALSE);
+	g_return_val_if_fail (plugin, FALSE);
 
-	plugin->methods.process (transition, buffer, len, &err);
+	plugin->methods.process (transition, buffer, len, err);
 	return TRUE;
 }

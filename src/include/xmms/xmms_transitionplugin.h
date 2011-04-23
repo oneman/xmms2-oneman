@@ -85,7 +85,7 @@ typedef struct xmms_transition_methods_St {
 	 * @param err an error struct
 	 */
 	void (*process)(xmms_transition_t *transition, gpointer buffer,
-	              gint size, xmms_error_t *err);
+	              gint len, xmms_error_t *err);
 
 } xmms_transition_methods_t;
 
