@@ -50,6 +50,9 @@ static xmms_transition_t *xmms_transition_new (xmms_transition_plugin_t *plugin)
 static void xmms_transition_destroy (xmms_transition_t *transition);
 
 static gboolean xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t *transition);
+static void xmms_transition_show(xmms_transition_t *transition);
+
+static void xmms_transitions_show (xmms_transitions_t *transitions);
 
 
 gpointer
@@ -96,6 +99,32 @@ update_transitions_config (xmms_object_t *object, xmmsv_t *data,
 
 
 	XMMS_DBG ("Update transitions config called");
+	
+	
+	xmms_transitions_t *transitions = (xmms_transitions_t *)userdata;
+	
+	xmms_transitions_show (transitions);
+	
+	
+
+}
+
+
+static void
+xmms_transitions_show (xmms_transitions_t *transitions)
+{
+
+
+	XMMS_DBG ("showing all the transitions");
+	
+	
+		gint t;
+
+	for(t = 0; t < 7; t++) {
+		xmms_transition_show(transitions->transitions[t]);
+	}
+	
+	
 
 }
 
@@ -120,7 +149,10 @@ xmms_transitions_new ()
 		
 
 	for(t = 0; t < 7; t++) {
-	
+		XMMS_DBG ("goin %d", t);
+		if(t > 0)
+			xmms_transition_show(transitions->transitions[t - 1]);
+		
 		// Single Source starting/stopping/pausing/resuming
 		if (t < 4) { 
 		
@@ -130,7 +162,7 @@ xmms_transitions_new ()
 		
 				if (stack_no) {
 					xmms_config_property_register (key, "", update_transitions_config,
-				                               NULL);
+				                               transitions);
 				}
 
 				cfg = xmms_config_lookup (key);
@@ -138,7 +170,9 @@ xmms_transitions_new ()
 				if (!cfg) {
 					// no config exists
 					XMMS_DBG ("No config for %s transition plugin number %d in stack", transition_strings[t], stack_no);
+									if (stack_no == 0) { 
 					transitions->transitions[t] = xmms_transition_new(NULL);
+					}
 					break;
 				}
 			
@@ -147,7 +181,9 @@ xmms_transitions_new ()
 				if (!name[0]) {
 					// config exists, but is empty
 					XMMS_DBG ("No value for %s transition plugin number %d in stack", transition_strings[t],stack_no);
+								if (stack_no == 0) { 
 					transitions->transitions[t] = xmms_transition_new(NULL);
+					}
 					break;
 				}
 
@@ -164,18 +200,22 @@ xmms_transitions_new ()
 					if (stack_no == 0) { 
 						transitions->transitions[t] = xmms_transition_new(plugin);
 					} else {
+					XMMS_DBG ("seccy add");
 						xmms_transition_add_plugin (plugin, transitions->transitions[t]);
 					}
 					XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_strings[t], stack_no);
 				}
+			
+						xmms_transition_show(transitions->transitions[t]);
 				
 			}
 		
 		} else {
 			// Dual Source Seeking, Jumping Advancing
-			
+								XMMS_DBG ("mugglefuck");
 			/* MIX PLUGIN */
-			
+			transitions->transitions[t] = xmms_transition_new(NULL);
+			if (FALSE) {
 			
 				g_snprintf (key, sizeof (key), "transition.%s.mix", transition_strings[t]);
 		
@@ -190,8 +230,8 @@ xmms_transitions_new ()
 					// no config exists
 					XMMS_DBG ("No config for %s transition mixing plugin", transition_strings[t]);
 					transitions->transitions[t] = xmms_transition_new(NULL);
-					continue;
-				}
+					//continue;
+				} else {
 			
 				name = xmms_config_property_get_string (cfg);
 
@@ -199,8 +239,8 @@ xmms_transitions_new ()
 					// config exists, but is empty
 					XMMS_DBG ("No value for %s transition mixing plugin", transition_strings[t]);
 					transitions->transitions[t] = xmms_transition_new(NULL);
-					continue;
-				}
+					//continue;
+				} else {
 
 				// config exists and is something
 				XMMS_DBG ("Trying %s plugin for %s transition mixing effect", name, transition_strings[t]);
@@ -214,6 +254,8 @@ xmms_transitions_new ()
 				} else {
 					transitions->transitions[t] = xmms_transition_new(plugin);
 					XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_strings[t], stack_no);
+				}
+				}
 				}
 			
 			
@@ -246,10 +288,12 @@ xmms_transitions_new ()
 				if (!cfg) {
 					// no config exists
 					XMMS_DBG ("No config for %s transition %s plugin number %d in stack", transition_strings[t], inorout, stack_no);
+									if (stack_no == 0) { 
 					if (i == 0) {
 						transitions->transitions[t]->out = xmms_transition_new(NULL);
 					} else {
 						transitions->transitions[t]->in = xmms_transition_new(NULL);
+					}
 					}
 					break;
 				}
@@ -259,10 +303,12 @@ xmms_transitions_new ()
 				if (!name[0]) {
 					// config exists, but is empty
 					XMMS_DBG ("No value for %s transition %s plugin number %d in stack", transition_strings[t], inorout, stack_no);
+									if (stack_no == 0) { 
 					if (i == 0) {
 						transitions->transitions[t]->out = xmms_transition_new(NULL);
 					} else {
 						transitions->transitions[t]->in = xmms_transition_new(NULL);
+					}
 					}
 					break;
 				}
@@ -301,12 +347,16 @@ xmms_transitions_new ()
 			}
 				
 			}	
-
+		}
 		}
 	
 	}
 
 	XMMS_DBG ("Transitions setup complete");
+	
+	
+	xmms_transitions_show(transitions);
+	
 	
 	return transitions;
 
@@ -332,7 +382,7 @@ static xmms_transition_t *
 xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transition)
 {
 	
-	XMMS_DBG ("Adding transition");
+	XMMS_DBG ("Adding bongo transition");
 
 	transition->plugin = plugin;
 
@@ -341,6 +391,28 @@ xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transi
 	transition->enabled = true;
 
 	return transition;
+
+}
+
+static void
+xmms_transition_show(xmms_transition_t *transition)
+{
+
+	XMMS_DBG ("showing transition");
+
+	if (transition->enabled) {
+	
+		XMMS_DBG ("enabled");
+	
+
+	}
+
+	if (transition->next) {
+	
+		XMMS_DBG ("we go on");
+	
+		xmms_transition_show(transition->next);
+	}
 
 }
 
@@ -353,7 +425,7 @@ xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t 
 	XMMS_DBG ("Adding transition");
 
 	if (transition->plugin == NULL) {
-
+	XMMS_DBG ("mistake!!!!!!!!!!!!!!");
 		transition->plugin = plugin;
 
 		xmms_transition_plugin_method_new (plugin, transition);
@@ -364,12 +436,14 @@ xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t 
 	} else {
 		if (transition->next == NULL) {
 			transition->next = xmms_transition_new (plugin);
+				XMMS_DBG ("one ");
 			return TRUE;
 		} else {
-			xmms_transition_add_plugin (plugin, transition->next);
+			XMMS_DBG (" the other");
+			return xmms_transition_add_plugin (plugin, transition->next);
 		}
 	}
-	
+				XMMS_DBG ("fuck bad");
 	return FALSE;
 
 }
@@ -401,10 +475,25 @@ xmms_transition_destroy (xmms_transition_t *transition)
 
 	XMMS_DBG ("Destroying transition");
 
-	xmms_transition_plugin_method_destroy (transition->plugin, transition);
-
-	xmms_object_unref (transition->plugin);
-
+	if (transition->next != NULL) {
+			XMMS_DBG ("baaoom");
+		xmms_transition_destroy(transition->next);
+	}
+	if (transition->in != NULL) {
+			XMMS_DBG ("kaboom");
+		xmms_transition_destroy(transition->in);
+	}	
+	if (transition->out != NULL) {
+			XMMS_DBG ("la boom");
+		xmms_transition_destroy(transition->out);
+	
+	}
+	if (transition->plugin != NULL) {
+		XMMS_DBG ("boom");
+		xmms_transition_plugin_method_destroy (transition->plugin, transition);
+		xmms_object_unref (transition->plugin);
+	}
+	
 	g_free (transition);
 
 
