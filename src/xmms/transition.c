@@ -173,7 +173,134 @@ xmms_transitions_new ()
 		
 		} else {
 			// Dual Source Seeking, Jumping Advancing
-			XMMS_DBG ("Skipping dual source %s transition", transition_strings[t]);	
+			
+			/* MIX PLUGIN */
+			
+			
+				g_snprintf (key, sizeof (key), "transition.%s.mix", transition_strings[t]);
+		
+				if (stack_no) {
+					xmms_config_property_register (key, "", update_transitions_config,
+				                               NULL);
+				}
+
+				cfg = xmms_config_lookup (key);
+
+				if (!cfg) {
+					// no config exists
+					XMMS_DBG ("No config for %s transition mixing plugin", transition_strings[t]);
+					transitions->transitions[t] = xmms_transition_new(NULL);
+					continue;
+				}
+			
+				name = xmms_config_property_get_string (cfg);
+
+				if (!name[0]) {
+					// config exists, but is empty
+					XMMS_DBG ("No value for %s transition mixing plugin", transition_strings[t]);
+					transitions->transitions[t] = xmms_transition_new(NULL);
+					continue;
+				}
+
+				// config exists and is something
+				XMMS_DBG ("Trying %s plugin for %s transition mixing effect", name, transition_strings[t]);
+				
+				plugin = (xmms_transition_plugin_t *)xmms_plugin_find (XMMS_PLUGIN_TYPE_TRANSITION, name);
+
+				if (plugin == NULL) {
+					XMMS_DBG ("Cant find plugin called %s", name);
+					transitions->transitions[t] = xmms_transition_new(NULL);
+					continue;
+				} else {
+					transitions->transitions[t] = xmms_transition_new(plugin);
+					XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_strings[t], stack_no);
+				}
+			
+			
+			
+			
+			
+			/* IN AND OUT SIDE */
+			gint i;
+			const gchar *inorout;
+			// 0 = out, 1 in
+			for (i = 0; i<2;i++) {
+			
+			if (i == 0) {
+				inorout = "incoming";
+			} else {
+				inorout = "outgoing";
+			}
+			
+			for (stack_no = 0; TRUE; stack_no++) {
+
+				g_snprintf (key, sizeof (key), "transition.%s.%s.%i", transition_strings[t], inorout, stack_no);
+		
+				if (stack_no) {
+					xmms_config_property_register (key, "", update_transitions_config,
+				                               NULL);
+				}
+
+				cfg = xmms_config_lookup (key);
+
+				if (!cfg) {
+					// no config exists
+					XMMS_DBG ("No config for %s transition %s plugin number %d in stack", transition_strings[t], inorout, stack_no);
+					if (i == 0) {
+						transitions->transitions[t]->out = xmms_transition_new(NULL);
+					} else {
+						transitions->transitions[t]->in = xmms_transition_new(NULL);
+					}
+					break;
+				}
+			
+				name = xmms_config_property_get_string (cfg);
+
+				if (!name[0]) {
+					// config exists, but is empty
+					XMMS_DBG ("No value for %s transition %s plugin number %d in stack", transition_strings[t], inorout, stack_no);
+					if (i == 0) {
+						transitions->transitions[t]->out = xmms_transition_new(NULL);
+					} else {
+						transitions->transitions[t]->in = xmms_transition_new(NULL);
+					}
+					break;
+				}
+
+				// config exists and is something
+				XMMS_DBG ("Trying %s plugin for %s transition as %s effect number %d in stack", name, transition_strings[t], inorout, stack_no);
+				
+				plugin = (xmms_transition_plugin_t *)xmms_plugin_find (XMMS_PLUGIN_TYPE_TRANSITION, name);
+
+				if (plugin == NULL) {
+					XMMS_DBG ("Cant find plugin called %s", name);
+					if (i == 0) {
+						transitions->transitions[t]->out = xmms_transition_new(NULL);
+					} else {
+						transitions->transitions[t]->in = xmms_transition_new(NULL);
+					}
+					break;
+				} else {
+				
+					if (i == 0) {
+					if (stack_no == 0) { 
+						transitions->transitions[t]->out = xmms_transition_new(plugin);
+					} else {
+						xmms_transition_add_plugin (plugin, transitions->transitions[t]->out);
+					}
+					} else {
+					if (stack_no == 0) { 
+						transitions->transitions[t]->in = xmms_transition_new(plugin);
+					} else {
+						xmms_transition_add_plugin (plugin, transitions->transitions[t]->in);
+					}
+					}
+					XMMS_DBG ("%s plugin set for %s transition as %s effect %d in stack", name, transition_strings[t], inorout, stack_no);
+				}
+				
+			}
+				
+			}	
 
 		}
 	
