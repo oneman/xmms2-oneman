@@ -23,6 +23,24 @@
 #include "xmms/xmms_transitionplugin.h"
 #include "xmmspriv/xmms_plugin.h"
 
+typedef enum xmms_transition_state_E {
+	STARTING,
+	STOPPING,
+	PAUSING,
+	RESUMING,
+	SEEKING,
+	JUMPING,
+	ADVANCING,
+	NONE
+} xmms_transition_state_t;
+
+struct xmms_transitions_St {
+	xmms_transition_state_t playback_transition_state;
+	xmms_transition_t *transitions[7];
+
+};
+
+
 /*
  * Private function prototypes -- do NOT use in plugins.
  */

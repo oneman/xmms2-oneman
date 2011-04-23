@@ -39,15 +39,64 @@ G_BEGIN_DECLS
  * @{
  */
 
-typedef struct xmms_transition_St xmms_transition_t;
+typedef enum xmms_transition_direction_E {
+	OUT,
+	IN
+} xmms_transition_direction_t;
+
 typedef struct xmms_transitions_St xmms_transitions_t;
+struct xmms_transition_plugin_St;
+typedef struct xmms_transition_plugin_St xmms_transition_plugin_t;
+
+typedef struct xmms_transition_St xmms_transition_t;
+struct xmms_transition_St {
+
+xmms_transition_direction_t direction; /* single source only */
+
+	xmms_stream_type_t *format;
+	int callback;
+
+	xmms_transition_plugin_t *plugin;
+	gpointer plugin_data;
+	gint duration;
+	gint total_frames;
+	gint current_frame_number;
+	gboolean enabled; /* only for top level */
+	xmms_transition_t *next;
+	/* dual source only */
+	xmms_transition_t *in;
+	xmms_transition_t *out;
+	
+	
+	/*
+		xmms_ringbuf_t *outring;	// first source
+	xmms_ringbuf_t *inring;		// second source
+	gboolean readlast;
+	void *last;
+	*/
+
+};
+
+/*
+typedef struct xmms_xtransition_St {
+	gboolean setup;
+	int current_frame_number;
+	int total_frames;
+	int final_frame[2][128];
+	float current_fade_amount[2][128];
+	int lastsign[2][128];
+	xmms_stream_type_t *format;
+	xmms_ringbuf_t *outring;	// first source
+	xmms_ringbuf_t *inring;		// second source
+	gboolean readlast;
+	void *last;
+} xmms_xtransition_t; 
+*/
+
 /**
  * The current API version.
  */
 #define XMMS_TRANSITION_API_VERSION 1
-
-struct xmms_transition_plugin_St;
-typedef struct xmms_transition_plugin_St xmms_transition_plugin_t;
 
 /**
  * Transition Plugins Yadda
@@ -148,7 +197,7 @@ void xmms_transition_private_data_set (xmms_transition_t *transition, gpointer d
  * @param len the number of bytes to read
  * @return the number of bytes read
  */
-gint xmms_transition_read (xmms_transition_t *transition, char *buffer, gint len);
+//gint xmms_transition_read (xmms_transition_t *transition, char *buffer, gint len);
 
 
 /**

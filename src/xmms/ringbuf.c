@@ -14,10 +14,12 @@
  *  Lesser General Public License for more details.
  */
 
+#include "xmms/xmms_log.h"
 
-
-
+#ifndef RINGBUFTEST
 #include "xmmspriv/xmms_ringbuf.h"
+#endif
+
 #include <string.h>
 
 /** @defgroup Ringbuffer Ringbuffer
@@ -37,9 +39,9 @@ struct xmms_ringbuf_St {
 	/** Actually usable number of bytes */
 	guint buffer_size_usable;
 	/** Read and write index */
-	guint rd_index, wr_index;
+	volatile guint rd_index, wr_index;
 	gboolean eos;
-
+	gboolean eor;
 	GQueue *hotspots;
 
 	GCond *free_cond, *used_cond, *eos_cond;
@@ -51,6 +53,7 @@ typedef struct xmms_ringbuf_hotspot_St {
 	void (*destroy) (void *);
 	void *arg;
 } xmms_ringbuf_hotspot_t;
+
 
 
 /**
@@ -155,20 +158,71 @@ xmms_ringbuf_bytes_used (const xmms_ringbuf_t *ringbuf)
 {
 	g_return_val_if_fail (ringbuf, 0);
 
-	if (ringbuf->wr_index >= ringbuf->rd_index) {
-		return ringbuf->wr_index - ringbuf->rd_index;
+	guint wr_index_tmp, rd_index_tmp;
+
+	wr_index_tmp = ringbuf->wr_index;
+	rd_index_tmp = ringbuf->rd_index;		
+
+	if (wr_index_tmp >= rd_index_tmp) {
+		return wr_index_tmp - rd_index_tmp;
 	}
 
-	return ringbuf->buffer_size - (ringbuf->rd_index - ringbuf->wr_index);
+	return ringbuf->buffer_size - (rd_index_tmp - wr_index_tmp);
+}
+
+
+gint xmms_ringbuf_get_next_hotspot_pos (xmms_ringbuf_t *ringbuf) {
+
+	while (!g_queue_is_empty (ringbuf->hotspots)) {
+		xmms_ringbuf_hotspot_t *hs = g_queue_peek_head (ringbuf->hotspots);
+		return hs->pos;
+	}
+
+
+	return -1;
+
+}
+
+void xmms_ringbuf_hit_hotspot (xmms_ringbuf_t *ringbuf) {
+
+	gboolean ok;
+			
+	if (!g_queue_is_empty (ringbuf->hotspots)) {		
+
+		xmms_ringbuf_hotspot_t *hs = g_queue_peek_head (ringbuf->hotspots);
+		(void) g_queue_pop_head (ringbuf->hotspots);
+		ok = hs->callback (hs->arg);
+
+		if (hs->destroy)
+			hs->destroy (hs->arg);
+
+		g_free (hs);
+
+		if (!ok) {
+			//return 0;
+		}
+		
+	} else {
+		XMMS_DBG ("No hitable hotspot");
+	}
+		
+}
+
+gint
+xmms_ringbuf_get_read_pos (xmms_ringbuf_t *ringbuf)
+{
+	return ringbuf->rd_index;
 }
 
 static guint
 read_bytes (xmms_ringbuf_t *ringbuf, guint8 *data, guint len)
 {
-	guint to_read, r = 0, cnt, tmp;
+	guint to_read, bytes_used, r = 0, cnt, tmp;
 	gboolean ok;
 
-	to_read = MIN (len, xmms_ringbuf_bytes_used (ringbuf));
+
+	bytes_used = xmms_ringbuf_bytes_used (ringbuf);
+	to_read = MIN (len, bytes_used);
 
 	while (!g_queue_is_empty (ringbuf->hotspots)) {
 		xmms_ringbuf_hotspot_t *hs = g_queue_peek_head (ringbuf->hotspots);
@@ -229,8 +283,7 @@ xmms_ringbuf_read (xmms_ringbuf_t *ringbuf, gpointer data, guint len)
 
 	r = read_bytes (ringbuf, (guint8 *) data, len);
 
-	ringbuf->rd_index += r;
-	ringbuf->rd_index %= ringbuf->buffer_size;
+	ringbuf->rd_index = (ringbuf->rd_index + r) % ringbuf->buffer_size;
 
 	if (r) {
 		g_cond_broadcast (ringbuf->free_cond);
@@ -238,6 +291,54 @@ xmms_ringbuf_read (xmms_ringbuf_t *ringbuf, gpointer data, guint len)
 
 	return r;
 }
+
+
+
+/**
+ * Reads data from the ringbuffer. This is a non-blocking call and can
+ * return less data than you wanted. Use #xmms_ringbuf_wait_used to
+ * ensure that you get as much data as you want.
+ *
+ * @param ringbuf Buffer to read from
+ * @param data Allocated buffer where the readed data will end up
+ * @param len number of bytes to read
+ * @returns number of bytes that acutally was read.
+ */
+guint
+xmms_ringbuf_read_cutzero (xmms_ringbuf_t *ringbuf, gpointer data, guint len)
+{
+	guint r;
+
+	g_return_val_if_fail (ringbuf, 0);
+	g_return_val_if_fail (data, 0);
+	g_return_val_if_fail (len > 0, 0);
+
+	r = read_bytes (ringbuf, (guint8 *) data, len);
+	
+	float *data2;
+	data2 = data;
+	int x, r2,y ;
+	r2 = r;
+	x = find_final_zero_crossing (data, r);
+	if(x != -1) {
+	
+		r2 = x * 8;
+
+		for(y = (x * 2 ) - 2; y < len / 4; y++) {
+			data2[y] = 0.0; 
+		}
+
+	}
+
+	ringbuf->rd_index = (ringbuf->rd_index + r2) % ringbuf->buffer_size;
+
+	if (r) {
+		g_cond_broadcast (ringbuf->free_cond);
+	}
+
+	return r;
+}
+
 
 /**
  * Same as #xmms_ringbuf_read but does not advance in the buffer after
@@ -321,14 +422,15 @@ guint
 xmms_ringbuf_write (xmms_ringbuf_t *ringbuf, gconstpointer data,
                     guint len)
 {
-	guint to_write, w = 0, cnt;
+	guint to_write, bytes_free, w = 0, cnt;
 	const guint8 *src = data;
 
 	g_return_val_if_fail (ringbuf, 0);
 	g_return_val_if_fail (data, 0);
 	g_return_val_if_fail (len > 0, 0);
 
-	to_write = MIN (len, xmms_ringbuf_bytes_free (ringbuf));
+	bytes_free = xmms_ringbuf_bytes_free (ringbuf);
+	to_write = MIN (len, bytes_free);
 
 	while (to_write > 0) {
 		cnt = MIN (to_write, ringbuf->buffer_size - ringbuf->wr_index);
@@ -363,7 +465,7 @@ xmms_ringbuf_write_wait (xmms_ringbuf_t *ringbuf, gconstpointer data,
 
 	while (w < len) {
 		w += xmms_ringbuf_write (ringbuf, src + w, len - w);
-		if (w == len || ringbuf->eos) {
+		if (w == len || ringbuf->eor) {
 			break;
 		}
 
@@ -384,8 +486,12 @@ xmms_ringbuf_wait_free (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx)
 	g_return_if_fail (len <= ringbuf->buffer_size_usable);
 	g_return_if_fail (mtx);
 
-	while ((xmms_ringbuf_bytes_free (ringbuf) < len) && !ringbuf->eos) {
-		g_cond_wait (ringbuf->free_cond, mtx);
+	GTimeVal wait_time;
+
+	while ((xmms_ringbuf_bytes_free (ringbuf) < len) && !ringbuf->eor) {
+		g_get_current_time (&wait_time);
+		g_time_val_add (&wait_time, 30000);
+		g_cond_timed_wait (ringbuf->free_cond, mtx, &wait_time);
 	}
 }
 
@@ -401,9 +507,43 @@ xmms_ringbuf_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx)
 	g_return_if_fail (len <= ringbuf->buffer_size_usable);
 	g_return_if_fail (mtx);
 
+	GTimeVal wait_time;
+
 	while ((xmms_ringbuf_bytes_used (ringbuf) < len) && !ringbuf->eos) {
-		g_cond_wait (ringbuf->used_cond, mtx);
+		XMMS_DBG("waiting");
+		g_get_current_time (&wait_time);
+		g_time_val_add (&wait_time, 30000);
+		g_cond_timed_wait (ringbuf->used_cond, mtx, &wait_time);
 	}
+}
+
+
+/**
+ * Block until we have used space in the buffer
+ */
+
+gboolean
+xmms_ringbuf_timed_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx, guint ms)
+{
+	g_return_val_if_fail (ringbuf, FALSE);
+	g_return_val_if_fail (len > 0, FALSE);
+	g_return_val_if_fail (len <= ringbuf->buffer_size_usable, FALSE);
+	g_return_val_if_fail (mtx, FALSE);
+
+	GTimeVal wait_time;
+
+	if ((xmms_ringbuf_bytes_used (ringbuf) < len) && !ringbuf->eos) {
+		g_get_current_time (&wait_time);
+		//g_time_val_add (&wait_time, (ms * 1000));
+				g_time_val_add (&wait_time, 30000);
+				XMMS_DBG("fuck");
+		if (g_mutex_trylock (mtx) == FALSE) {
+						XMMS_DBG("what the fuck %d", xmms_ringbuf_bytes_used (ringbuf));
+		}
+		return g_cond_timed_wait (ringbuf->used_cond, mtx, &wait_time);
+	}
+	
+	return TRUE;
 }
 
 /**
@@ -433,6 +573,35 @@ xmms_ringbuf_set_eos (xmms_ringbuf_t *ringbuf, gboolean eos)
 	if (eos) {
 		g_cond_broadcast (ringbuf->eos_cond);
 		g_cond_broadcast (ringbuf->used_cond);
+		g_cond_broadcast (ringbuf->free_cond);
+	}
+}
+
+/**
+ * Tell if the ringbuffer is done being read
+ *
+ * @returns TRUE if the ringbuffer is EORed.
+ */
+
+gboolean
+xmms_ringbuf_is_eor (const xmms_ringbuf_t *ringbuf)
+{
+	g_return_val_if_fail (ringbuf, TRUE);
+
+	return ringbuf->eor;
+}
+
+/**
+ * Set EOR flag on ringbuffer.
+ */
+void
+xmms_ringbuf_set_eor (xmms_ringbuf_t *ringbuf, gboolean eor)
+{
+	g_return_if_fail (ringbuf);
+
+	ringbuf->eor = eor;
+
+	if (eor) {
 		g_cond_broadcast (ringbuf->free_cond);
 	}
 }
@@ -473,4 +642,195 @@ xmms_ringbuf_hotspot_set (xmms_ringbuf_t *ringbuf, gboolean (*cb) (void *), void
 	g_queue_push_tail (ringbuf->hotspots, hs);
 }
 
+
+/* Advance the read pointer `cnt' places. */
+
+void
+xmms_ringbuf_read_advance (xmms_ringbuf_t * ringbuf, gint cnt)
+{
+	ringbuf->rd_index = (ringbuf->rd_index + cnt) % ringbuf->buffer_size;
+	g_cond_broadcast (ringbuf->free_cond);
+}
+
+/* Advance the write pointer `cnt' places. */
+
+void
+xmms_ringbuf_write_advance (xmms_ringbuf_t * ringbuf, gint cnt)
+{
+	ringbuf->wr_index = (ringbuf->wr_index + cnt) % ringbuf->buffer_size;
+	g_cond_broadcast (ringbuf->used_cond);
+}
+
+/* The non-copying data reader.  `vec' is an array of two places.  Set
+   the values at `vec' to hold the current readable data at `rb'.  If
+   the readable data is in one segment the second segment has zero
+   length.  */
+
+void
+xmms_ringbuf_get_read_vector (const xmms_ringbuf_t * rb,
+				 xmms_ringbuf_vector_t * vec)
+{
+	gint used_cnt;
+	gint cnt2;
+	gint w, r;
+
+	w = rb->wr_index;
+	r = rb->rd_index;
+/*
+	if (w > r) {
+		free_cnt = w - r;
+	} else {
+		free_cnt = (w - r + rb->size) & rb->size_mask;
+	}
+*/
+	used_cnt = xmms_ringbuf_bytes_used(rb);// 6000
+
+	cnt2 = r + used_cnt;  //30000 + 6000
+           //36000    32000
+	if (cnt2 > rb->buffer_size) {
+
+		/* Two part vector: the rest of the buffer after the current write
+		   ptr, plus some from the start of the buffer. */
+
+		vec[0].buf = rb->buffer + r;
+		vec[0].len = rb->buffer_size - r; //32000 - 30000  = 2000
+		vec[1].buf = rb->buffer;// 0
+		vec[1].len = cnt2 - rb->buffer_size; // 36000 - 32000 = 4000
+
+	} else {
+
+		/* Single part vector: just the rest of the buffer */
+
+		vec[0].buf = rb->buffer + r;
+		vec[0].len = used_cnt;
+		vec[1].len = 0;
+	}
+}
+
+/* The non-copying data writer.  `vec' is an array of two places.  Set
+   the values at `vec' to hold the current writeable data at `rb'.  If
+   the writeable data is in one segment the second segment has zero
+   length.  */
+
+void
+xmms_ringbuf_get_write_vector (const xmms_ringbuf_t * rb,
+				  xmms_ringbuf_vector_t * vec)
+{
+	gint free_cnt;
+	gint cnt2;
+	gint w, r;
+
+	w = rb->wr_index;
+	r = rb->rd_index;
+/*
+	if (w > r) {
+		free_cnt = ((r - w + rb->size) & rb->size_mask) - 1;
+	} else if (w < r) {
+		free_cnt = (r - w) - 1;
+	} else {
+		free_cnt = rb->size - 1;
+	}
+*/
+	free_cnt = xmms_ringbuf_bytes_free(rb);
+
+	cnt2 = w + free_cnt;
+
+	if (cnt2 > rb->buffer_size) {
+
+		/* Two part vector: the rest of the buffer after the current write
+		   ptr, plus some from the start of the buffer. */
+
+		vec[0].buf = rb->buffer + w;
+		vec[0].len = rb->buffer_size - w;
+		//vec[1].buf = rb->buffer;
+		//vec[1].len = cnt2 - rb->buffer_size;
+	} else {
+		vec[0].buf = rb->buffer + w;
+		vec[0].len = free_cnt;
+		//vec[1].len = 0;
+	}
+}
+
+
+int find_final_zero_crossing (void *buffer, int len) {
+
+	float *samples_float;
+	samples_float = (float*)buffer;
+	int frames, channels;
+			//frames = len / xmms_sample_frame_size_get(fader->format);
+			frames = len / 8;
+			channels = 2;
+			int final_frame[2];
+						int sign[2];
+			int lastsign[2];
+			
+			int i , j;
+
+			final_frame[0] = -5;
+			final_frame[1] = -666;
+
+				for (j = 0; j < channels; j++) {
+					if (samples_float[(frames - 1)*channels + j] >= 0) {
+						lastsign[j] = 1;
+					} else {
+						lastsign[j] = 0;
+					}
+				}
+				
+				
+			for (i = frames - 1; i > -1; i--) {	
+				for (j = 0; j < channels; j++) {
+
+						if (samples_float[i*channels + j] >= 0) {
+							sign[j] = 1;
+						} else {
+							sign[j] = 0;
+						}
+			
+						if (sign[j] != lastsign[j]) {	
+						
+						
+						   if ((samples_float[i*channels + j] != 0.0) && (samples_float[i*channels + j] != -0.0)) {
+							final_frame[j] = i + 1;
+							
+							}
+							
+						}
+						
+						lastsign[j] = sign[j];
+						
+					}
+					
+						if (final_frame[0] == final_frame[1]) {	
+						
+						XMMS_DBG("final 1 %f", samples_float[(final_frame[0] * 2) - 4]);
+						XMMS_DBG("final + %f", samples_float[(final_frame[1] * 2) - 3 ]);	
+						
+						XMMS_DBG("final 1 %f", samples_float[(final_frame[0] * 2) - 1]);
+						XMMS_DBG("final + %f", samples_float[(final_frame[1] * 2) - 2 ]);
+
+						XMMS_DBG("final ::1 %f", samples_float[(final_frame[0] * 2) ]);
+						XMMS_DBG("final ::+ %f", samples_float[(final_frame[1] * 2) + 1]);	
+		
+						XMMS_DBG("final 1 %f", samples_float[(final_frame[0] * 2) + 1]);
+						XMMS_DBG("final + %f", samples_float[(final_frame[1] * 2) + 2 ]);
+												
+						XMMS_DBG("final 1 %f", samples_float[(final_frame[0] * 2) + 3]);
+						XMMS_DBG("final + %f", samples_float[(final_frame[1] * 2) + 4 ]);
+			
+						XMMS_DBG("final 1 %f", samples_float[(final_frame[0] * 2) + 5]);
+						XMMS_DBG("final + %f", samples_float[(final_frame[1] * 2) + 6 ]);
+			
+						XMMS_DBG("found stereo zero corssing yah! %d", final_frame[0]);
+
+						return final_frame[0];
+						}
+					
+				}
+				
+
+				XMMS_DBG("No Zero stereo Cross found fuck");
+				return -1;
+					
+}
 

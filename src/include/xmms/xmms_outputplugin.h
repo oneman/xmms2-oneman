@@ -31,6 +31,7 @@
 #include "xmms/xmms_streamtype.h"
 #include "xmms/xmms_medialib.h"
 
+
 G_BEGIN_DECLS
 
 /**
@@ -41,6 +42,11 @@ G_BEGIN_DECLS
 
 
 typedef struct xmms_output_St xmms_output_t;
+
+typedef struct xmms_output_vector_St {
+	guint8  *buf;
+	gint len;
+} xmms_output_vector_t;
 
 /**
  * The current API version.
@@ -299,6 +305,8 @@ void xmms_output_stream_type_add (xmms_output_t *output, ...);
 /**
  * Read a number of bytes of data from the output buffer into a buffer.
  *
+ * This function may return less bytes than you asked for!
+ *
  * This is typically used when the output plugin is event driven, and is
  * then used when the status is set to playing, and the output needs more
  * data from xmms2 to write to the soundcard.
@@ -309,6 +317,31 @@ void xmms_output_stream_type_add (xmms_output_t *output, ...);
  * @return the number of bytes read
  */
 gint xmms_output_read (xmms_output_t *output, char *buffer, gint len);
+
+void xmms_output_get_vectors(xmms_output_t *output, xmms_output_vector_t *vectors);
+
+void xmms_output_advance(xmms_output_t *output, gint cnt);
+
+gint xmms_output_get_next_hotspot_pos(xmms_output_t *output);
+
+void xmms_output_hit_hotspot(xmms_output_t *output);
+
+gint xmms_output_get_ringbuf_pos(xmms_output_t *output);
+/**
+ * Read a number of bytes of data from the output buffer into a buffer.
+ *
+ * This function will block until it has all the bytes you asked for!
+ *
+ * This is typically used when the output plugin is event driven, and is
+ * then used when the status is set to playing, and the output needs more
+ * data from xmms2 to write to the soundcard.
+ *
+ * @param output an output object
+ * @param buffer a buffer to store the read data in
+ * @param len the number of bytes to read
+ * @return the number of bytes read
+ */
+gint xmms_output_read_wait (xmms_output_t *output, char *buffer, gint len);
 
 /**
  * Gets Number of available bytes in the output buffer
@@ -322,7 +355,7 @@ gint xmms_output_read (xmms_output_t *output, char *buffer, gint len);
  * @param len the number of bytes to read
  * @return the number of bytes read
  */
-gint xmms_output_bytes_available (xmms_output_t *output);
+guint xmms_output_bytes_available (xmms_output_t *output);
 
 /**
  * Set an error.

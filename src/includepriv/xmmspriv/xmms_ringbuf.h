@@ -24,12 +24,20 @@
 
 typedef struct xmms_ringbuf_St xmms_ringbuf_t;
 
+typedef struct xmms_ringbuf_vector_St {
+	guint8  *buf;
+	gint len;
+} xmms_ringbuf_vector_t;
+
+
 xmms_ringbuf_t *xmms_ringbuf_new (guint size);
 void xmms_ringbuf_destroy (xmms_ringbuf_t *ringbuf);
 void xmms_ringbuf_clear (xmms_ringbuf_t *ringbuf);
 guint xmms_ringbuf_bytes_free (const xmms_ringbuf_t *ringbuf);
 guint xmms_ringbuf_bytes_used (const xmms_ringbuf_t *ringbuf);
 guint xmms_ringbuf_size (xmms_ringbuf_t *ringbuf);
+
+guint xmms_ringbuf_read_cutzero (xmms_ringbuf_t *ringbuf, gpointer data, guint length);
 
 guint xmms_ringbuf_read (xmms_ringbuf_t *ringbuf, gpointer data, guint length);
 guint xmms_ringbuf_read_wait (xmms_ringbuf_t *ringbuf, gpointer data, guint length, GMutex *mtx);
@@ -39,11 +47,29 @@ void xmms_ringbuf_hotspot_set (xmms_ringbuf_t *ringbuf, gboolean (*cb) (void *),
 guint xmms_ringbuf_write (xmms_ringbuf_t *ringbuf, gconstpointer data, guint length);
 guint xmms_ringbuf_write_wait (xmms_ringbuf_t *ringbuf, gconstpointer data, guint length, GMutex *mtx);
 
+void xmms_ringbuf_write_advance(xmms_ringbuf_t *rb, gint cnt);
+void xmms_ringbuf_read_advance(xmms_ringbuf_t *rb, gint cnt);
+void xmms_ringbuf_get_read_vector(const xmms_ringbuf_t *rb, xmms_ringbuf_vector_t *vec);
+void xmms_ringbuf_get_write_vector(const xmms_ringbuf_t *rb, xmms_ringbuf_vector_t *vec);
+gint xmms_ringbuf_get_read_pos (xmms_ringbuf_t *ringbuf);
+gint xmms_ringbuf_get_next_hotspot_pos (xmms_ringbuf_t *ringbuf);
+void xmms_ringbuf_hit_hotspot (xmms_ringbuf_t *ringbuf);
+int find_final_zero_crossing (void *buffer, int len);
+
+
 void xmms_ringbuf_wait_free (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx);
 void xmms_ringbuf_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx);
+gboolean xmms_ringbuf_timed_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx, guint ms);
+
+gboolean xmms_ringbuf_is_eor (const xmms_ringbuf_t *ringbuf);
+void xmms_ringbuf_set_eor (xmms_ringbuf_t *ringbuf, gboolean eor);
 
 gboolean xmms_ringbuf_iseos (const xmms_ringbuf_t *ringbuf);
 void xmms_ringbuf_set_eos (xmms_ringbuf_t *ringbuf, gboolean eos);
 void xmms_ringbuf_wait_eos (const xmms_ringbuf_t *ringbuf, GMutex *mtx);
 
 #endif /* __XMMS_RINGBUF_H__ */
+
+
+
+

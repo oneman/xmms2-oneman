@@ -24,26 +24,6 @@
 #include "xmmspriv/xmms_transition.h"
 #include "xmms/xmms_log.h"
 
-struct xmms_transition_St {
-
-	xmms_transition_plugin_t *plugin;
-	gpointer plugin_data;
-	gint duration;
-	gint frames;
-	gboolean enabled; /* only for top level */
-	xmms_transition_t *next;
-	/* dual source only */
-	xmms_transition_t *in;
-	xmms_transition_t *out;
-
-};
-
-struct xmms_transitions_St {
-	
-	xmms_transition_t *transitions[7];
-
-};
-
 static xmms_transition_t *xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transition);
 static void xmms_transition_remove (xmms_transition_t *transition);
 static xmms_transition_t *xmms_transition_new (xmms_transition_plugin_t *plugin);
@@ -389,6 +369,9 @@ xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transi
 	xmms_transition_plugin_method_new (plugin, transition);
 
 	transition->enabled = true;
+	
+		transition->total_frames = 220000;
+	
 
 	return transition;
 
