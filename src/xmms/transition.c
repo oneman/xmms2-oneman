@@ -160,7 +160,7 @@ xmms_transitions_new ()
 
 				g_snprintf (key, sizeof (key), "transition.%s.%i", transition_strings[t], stack_no);
 		
-				if (stack_no) {
+				if (true) {
 					xmms_config_property_register (key, "", update_transitions_config,
 				                               transitions);
 				}
@@ -212,16 +212,16 @@ xmms_transitions_new ()
 		
 		} else {
 			// Dual Source Seeking, Jumping Advancing
-								XMMS_DBG ("mugglefuck");
+
 			/* MIX PLUGIN */
-			transitions->transitions[t] = xmms_transition_new(NULL);
-			if (FALSE) {
+
+
 			
 				g_snprintf (key, sizeof (key), "transition.%s.mix", transition_strings[t]);
 		
-				if (stack_no) {
+				if (true) {
 					xmms_config_property_register (key, "", update_transitions_config,
-				                               NULL);
+				                               transitions);
 				}
 
 				cfg = xmms_config_lookup (key);
@@ -278,9 +278,9 @@ xmms_transitions_new ()
 
 				g_snprintf (key, sizeof (key), "transition.%s.%s.%i", transition_strings[t], inorout, stack_no);
 		
-				if (stack_no) {
+				if (true) {
 					xmms_config_property_register (key, "", update_transitions_config,
-				                               NULL);
+				                               transitions);
 				}
 
 				cfg = xmms_config_lookup (key);
@@ -346,7 +346,7 @@ xmms_transitions_new ()
 				
 			}
 				
-			}	
+			
 		}
 		}
 	
