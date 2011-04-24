@@ -18,13 +18,6 @@
 #include "xmmspriv/xmms_plugin.h"
 #include "xmms/xmms_log.h"
 
-struct xmms_transition_plugin_St {
-	xmms_plugin_t plugin;
-	xmms_transition_methods_t methods;
-};
-
-
-
 
 static void
 xmms_transition_plugin_destroy (xmms_object_t *obj)
@@ -53,10 +46,18 @@ xmms_transition_plugin_methods_set (xmms_transition_plugin_t *plugin,
 	g_return_if_fail (plugin);
 	g_return_if_fail (plugin->plugin.type == XMMS_PLUGIN_TYPE_TRANSITION);
 
-	XMMS_DBG ("Registering transition '%s'",
-	          xmms_plugin_shortname_get ((xmms_plugin_t *)plugin));
-
 	memcpy (&plugin->methods, methods, sizeof (xmms_transition_methods_t));
+	
+	if (plugin->methods.process) {
+		plugin->type = SINGLE;
+	} else {
+		plugin->type = MIX;
+	}
+	
+	XMMS_DBG ("Registering transition '%s'",
+	         xmms_plugin_shortname_get ((xmms_plugin_t *)plugin));
+	
+	
 }
 
 
@@ -70,8 +71,8 @@ xmms_transition_plugin_verify (xmms_plugin_t *_plugin)
 
 	if (!(plugin->methods.new &&
 	      plugin->methods.destroy &&
-	      plugin->methods.process)) {
-		XMMS_DBG ("Missing: new, destroy or process!");
+	      (plugin->methods.mix || plugin->methods.process))) {
+		XMMS_DBG ("Missing: new, destroy or mix / process!");
 		return FALSE;
 	}
 
@@ -120,6 +121,17 @@ xmms_transition_plugin_method_destroy (xmms_transition_plugin_t *plugin,
 	if (plugin->methods.destroy) {
 		plugin->methods.destroy (transition);
 	}
+}
+
+int xmms_transition_plugin_method_mix (xmms_transition_plugin_t *plugin, xmms_xtransition_t *xtransition,
+                                               gpointer buffer, gint len, xmms_error_t *err)
+{
+
+	g_return_val_if_fail (xtransition, FALSE);
+	g_return_val_if_fail (plugin, FALSE);
+
+	return plugin->methods.mix (xtransition, buffer, len, err);
+
 }
 
 

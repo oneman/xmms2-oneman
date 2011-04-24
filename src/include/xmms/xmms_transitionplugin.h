@@ -31,6 +31,10 @@
 #include "xmms/xmms_streamtype.h"
 #include "xmms/xmms_medialib.h"
 
+
+/* tsk tsk... */
+#include "../includepriv/xmmspriv/xmms_ringbuf.h"
+#include "../includepriv/xmmspriv/xmms_plugin.h"
 G_BEGIN_DECLS
 
 /**
@@ -39,13 +43,18 @@ G_BEGIN_DECLS
  * @{
  */
 
+typedef enum xmms_transition_type_E {
+	SINGLE,
+	MIX
+} xmms_transition_type_t;
+
 typedef enum xmms_transition_direction_E {
 	OUT,
 	IN
 } xmms_transition_direction_t;
 
 typedef struct xmms_transitions_St xmms_transitions_t;
-struct xmms_transition_plugin_St;
+
 typedef struct xmms_transition_plugin_St xmms_transition_plugin_t;
 
 typedef struct xmms_transition_St xmms_transition_t;
@@ -76,6 +85,19 @@ xmms_transition_direction_t direction; /* single source only */
 	*/
 
 };
+
+
+typedef struct xmms_xtransition_St {
+	gboolean setup;
+
+	xmms_transition_t *transition;
+
+	xmms_stream_type_t *format;
+	xmms_ringbuf_t *outring;	// first source
+	xmms_ringbuf_t *inring;		// second source
+	gboolean readlast;
+	void *last;
+} xmms_xtransition_t; 
 
 /*
 typedef struct xmms_xtransition_St {
@@ -135,8 +157,30 @@ typedef struct xmms_transition_methods_St {
 	 */
 	int (*process)(xmms_transition_t *transition, gpointer buffer,
 	              gint len, xmms_error_t *err);
+	              
+
+	/**
+	 * Mix audio data.
+	 *
+	 * For dual source transitions only
+	 *
+	 * @param transition an transition object
+	 * @param buffer a buffer with audio data to write to
+	 * @param size the number of bytes in the buffer
+	 * @param err an error struct
+	 */
+	int (*mix)(xmms_xtransition_t *xtransition, gpointer buffer,
+	              gint len, xmms_error_t *err);
+	             
 
 } xmms_transition_methods_t;
+
+
+struct xmms_transition_plugin_St {
+	xmms_plugin_t plugin;
+	xmms_transition_methods_t methods;
+	xmms_transition_type_t type;
+};
 
 /**
  * Register the transition plugin.

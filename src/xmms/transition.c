@@ -27,7 +27,7 @@
 static xmms_transition_t *xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transition);
 static void xmms_transition_remove (xmms_transition_t *transition);
 static xmms_transition_t *xmms_transition_new (xmms_transition_plugin_t *plugin);
-static void xmms_transition_destroy (xmms_transition_t *transition);
+
 
 static gboolean xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t *transition);
 static void xmms_transition_show(xmms_transition_t *transition);
@@ -226,7 +226,7 @@ xmms_transitions_new ()
 					continue;
 				} else {
 					transitions->transitions[t] = xmms_transition_new(plugin);
-					XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_strings[t], stack_no);
+					XMMS_DBG ("%s plugin set for %s transition as mixing effect", name, transition_strings[t]);
 				}
 				}
 				}
@@ -337,6 +337,43 @@ xmms_transitions_new ()
 }
  
  
+xmms_transition_t *
+xmms_transition_clone (xmms_transition_t *transition)
+{
+
+	xmms_transition_t *transition_next;
+	xmms_transition_t *transition_clone = g_new0 (xmms_transition_t, 1);
+
+
+	XMMS_DBG ("Cloning transition for use");
+
+
+	if (transition->plugin != NULL) {
+		xmms_transition_add (transition->plugin, transition_clone);
+	}
+	
+	if (transition->next != NULL) {
+		transition_next = transition->next;
+		while (transition_next != NULL) {
+			
+			/* this needs to be change so we copy the config options */
+			xmms_transition_add_plugin (transition_next->plugin, transition_clone);
+			
+			transition_next = transition_next->next;
+		}
+	
+	
+	}
+	
+	
+
+	//transition_clone->total_frames = transition->total_frames;
+	//transition_clone->enabled = true;
+	return transition_clone;
+
+}
+ 
+ 
 static xmms_transition_t *
 xmms_transition_new (xmms_transition_plugin_t *plugin)
 {
@@ -363,7 +400,7 @@ xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transi
 
 	transition->enabled = true;
 	transition->total_frames = 50000;
-	
+	transition->current_frame_number = 0;
 
 	return transition;
 
@@ -426,6 +463,18 @@ xmms_transition_reset (xmms_transition_t *transition)
 
 }
 
+void
+xmms_transition_set_format (xmms_transition_t *transition, xmms_stream_type_t *format)
+{
+	
+	XMMS_DBG ("Setting transition format");
+	transition->format = format;
+	if (transition->next != NULL) {
+		xmms_transition_set_format (transition->next, format);
+	}
+
+}
+
 
 static void
 xmms_transition_remove (xmms_transition_t *transition)
@@ -444,8 +493,7 @@ xmms_transition_remove (xmms_transition_t *transition)
 
 }
 
-
-static void
+void
 xmms_transition_destroy (xmms_transition_t *transition)
 {
 

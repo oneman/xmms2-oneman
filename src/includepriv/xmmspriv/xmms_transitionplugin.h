@@ -30,4 +30,7 @@ void xmms_transition_plugin_method_destroy (xmms_transition_plugin_t *plugin, xm
 gboolean xmms_transition_plugin_method_process (xmms_transition_plugin_t *plugin, xmms_transition_t *transition,
                                                gpointer buffer, gint len, xmms_error_t *err);
 
+int xmms_transition_plugin_method_mix (xmms_transition_plugin_t *plugin, xmms_xtransition_t *xtransition,
+                                               gpointer buffer, gint len, xmms_error_t *err);
+
 #endif
