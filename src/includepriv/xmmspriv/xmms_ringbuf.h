@@ -59,7 +59,7 @@ int find_final_zero_crossing (void *buffer, int len);
 
 void xmms_ringbuf_wait_free (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx);
 void xmms_ringbuf_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx);
-gboolean xmms_ringbuf_timed_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx, guint ms);
+gboolean xmms_ringbuf_timed_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx, gint ms);
 
 gboolean xmms_ringbuf_is_eor (const xmms_ringbuf_t *ringbuf);
 void xmms_ringbuf_set_eor (xmms_ringbuf_t *ringbuf, gboolean eor);

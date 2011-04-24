@@ -523,7 +523,7 @@ xmms_ringbuf_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx)
  */
 
 gboolean
-xmms_ringbuf_timed_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx, guint ms)
+xmms_ringbuf_timed_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx, gint ms)
 {
 	g_return_val_if_fail (ringbuf, FALSE);
 	g_return_val_if_fail (len > 0, FALSE);
@@ -534,13 +534,15 @@ xmms_ringbuf_timed_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *
 
 	if ((xmms_ringbuf_bytes_used (ringbuf) < len) && !ringbuf->eos) {
 		g_get_current_time (&wait_time);
-		//g_time_val_add (&wait_time, (ms * 1000));
-				g_time_val_add (&wait_time, 30000);
-				XMMS_DBG("fuck");
-		if (g_mutex_trylock (mtx) == FALSE) {
-						XMMS_DBG("what the fuck %d", xmms_ringbuf_bytes_used (ringbuf));
-		}
-		return g_cond_timed_wait (ringbuf->used_cond, mtx, &wait_time);
+		g_time_val_add (&wait_time, (ms * 1000));
+		/* This causes problems with gdb and clients connecting for me for some reason
+		   gdb bug i think, could be replaced with usleep(10000) if needed */
+		if (g_cond_timed_wait (ringbuf->used_cond, mtx, &wait_time)) {
+			return TRUE;
+		} else {
+			return FALSE;
+		}		
+
 	}
 	
 	return TRUE;

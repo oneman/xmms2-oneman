@@ -574,13 +574,9 @@ xmms_output_filler_wait_for_message_or_space(xmms_output_t *output) {
 	int free_bytes;
 
 	while(TRUE) {
-		XMMS_DBG ("start wait");
 		ret = xmms_ringbuf_timed_wait_used(output->filler_messages, 4, output->filler_mutex, 30);
-				XMMS_DBG ("fin wait");
 		if (ret == TRUE) {
-		
 			ret = xmms_ringbuf_read(output->filler_messages, buf, 4);
-		
 			if(ret > 0) {
 				output->filler_state = buf[0];
 				return output->filler_state;
