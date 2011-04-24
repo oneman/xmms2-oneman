@@ -102,7 +102,7 @@ static gboolean
 xmms_fade_new (xmms_transition_t *transition)
 {
 
-	XMMS_DBG ("Fade Plugin Method New Called");
+	XMMS_DBG ("Fade plugin instance created");
 	
 	xmms_fade_data_t *data = g_new0 (xmms_fade_data_t, 1);
 	
@@ -118,7 +118,7 @@ static void
 xmms_fade_destroy (xmms_transition_t *transition)
 {
 
-	XMMS_DBG ("Fade Plugin Method Destroy Called");
+	XMMS_DBG ("Fade plugin instance destroyed");
 	
 	xmms_fade_data_t *data;
 	
@@ -134,8 +134,6 @@ static int
 xmms_fade_process (xmms_transition_t *transition, gpointer buffer, gint len,
                               xmms_error_t *err)
 {
-
-	XMMS_DBG ("Fade Plugin Method Process Called");
 	
 	xmms_fade_data_t *fader;
 	

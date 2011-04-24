@@ -95,10 +95,9 @@ xmms_transitions_show (xmms_transitions_t *transitions)
 {
 
 
-	XMMS_DBG ("showing all the transitions");
+	XMMS_DBG ("Displaying transitions setup");
 	
-	
-		gint t;
+	gint t;
 
 	for(t = 0; t < 7; t++) {
 		xmms_transition_show(transitions->transitions[t]);
@@ -129,9 +128,6 @@ xmms_transitions_new ()
 		
 
 	for(t = 0; t < 7; t++) {
-		XMMS_DBG ("goin %d", t);
-		if(t > 0)
-			xmms_transition_show(transitions->transitions[t - 1]);
 		
 		// Single Source starting/stopping/pausing/resuming
 		if (t < 4) { 
@@ -180,13 +176,10 @@ xmms_transitions_new ()
 					if (stack_no == 0) { 
 						transitions->transitions[t] = xmms_transition_new(plugin);
 					} else {
-					XMMS_DBG ("seccy add");
 						xmms_transition_add_plugin (plugin, transitions->transitions[t]);
 					}
 					XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_strings[t], stack_no);
 				}
-			
-						xmms_transition_show(transitions->transitions[t]);
 				
 			}
 		
@@ -362,7 +355,7 @@ static xmms_transition_t *
 xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transition)
 {
 	
-	XMMS_DBG ("Adding bongo transition");
+	XMMS_DBG ("Adding transition");
 
 	transition->plugin = plugin;
 
@@ -370,7 +363,7 @@ xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transi
 
 	transition->enabled = true;
 	
-		transition->total_frames = 220000;
+		transition->total_frames = 50000;
 	
 
 	return transition;
@@ -381,19 +374,14 @@ static void
 xmms_transition_show(xmms_transition_t *transition)
 {
 
-	XMMS_DBG ("showing transition");
+	XMMS_DBG ("Showing transition");
 
 	if (transition->enabled) {
-	
-		XMMS_DBG ("enabled");
-	
-
+		XMMS_DBG ("Enabled");
 	}
 
 	if (transition->next) {
-	
-		XMMS_DBG ("we go on");
-	
+		XMMS_DBG ("Stacked a level...");
 		xmms_transition_show(transition->next);
 	}
 
@@ -405,29 +393,37 @@ static gboolean
 xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t *transition)
 {
 	
-	XMMS_DBG ("Adding transition");
+	XMMS_DBG ("Adding plugin to transition");
 
 	if (transition->plugin == NULL) {
-	XMMS_DBG ("mistake!!!!!!!!!!!!!!");
+		XMMS_DBG ("Adding plugin");
 		transition->plugin = plugin;
-
 		xmms_transition_plugin_method_new (plugin, transition);
-
 		transition->enabled = true;
-
 		return TRUE;
 	} else {
 		if (transition->next == NULL) {
 			transition->next = xmms_transition_new (plugin);
-				XMMS_DBG ("one ");
 			return TRUE;
 		} else {
-			XMMS_DBG (" the other");
 			return xmms_transition_add_plugin (plugin, transition->next);
 		}
 	}
-				XMMS_DBG ("fuck bad");
+	XMMS_DBG ("A bad problem happened adding the plugin to the transition");
 	return FALSE;
+
+}
+
+
+void
+xmms_transition_reset (xmms_transition_t *transition)
+{
+	
+	XMMS_DBG ("Resetting transition");
+	transition->current_frame_number = 0;
+	if (transition->next != NULL) {
+		xmms_transition_reset (transition->next);
+	}
 
 }
 
@@ -459,26 +455,20 @@ xmms_transition_destroy (xmms_transition_t *transition)
 	XMMS_DBG ("Destroying transition");
 
 	if (transition->next != NULL) {
-			XMMS_DBG ("baaoom");
 		xmms_transition_destroy(transition->next);
 	}
 	if (transition->in != NULL) {
-			XMMS_DBG ("kaboom");
 		xmms_transition_destroy(transition->in);
 	}	
 	if (transition->out != NULL) {
-			XMMS_DBG ("la boom");
 		xmms_transition_destroy(transition->out);
-	
 	}
 	if (transition->plugin != NULL) {
-		XMMS_DBG ("boom");
 		xmms_transition_plugin_method_destroy (transition->plugin, transition);
 		xmms_object_unref (transition->plugin);
 	}
 	
 	g_free (transition);
-
 
 }
 

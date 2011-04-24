@@ -45,7 +45,7 @@ struct xmms_transitions_St {
  * Private function prototypes -- do NOT use in plugins.
  */
 
-
+void xmms_transition_reset (xmms_transition_t *transition);
 
 xmms_transitions_t *xmms_transitions_new (void);
 void xmms_transitions_destroy (xmms_transitions_t *transitions);

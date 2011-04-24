@@ -612,9 +612,6 @@ xmms_output_filler (void *arg)
 
 	while (output->filler_state != QUIT) {
 
-
-				XMMS_DBG ("Running as State: %d", output->filler_state );
-
 		/* Check for new state, first internally determined, then externally commanded */
 		if(output->new_internal_filler_state != NOOP) {
 			output->filler_state = output->new_internal_filler_state;
@@ -1083,8 +1080,7 @@ playback_transition_complete(xmms_output_t *output)
 	if (output->playback_transition->callback == 0) {
 		xmms_output_filler_message (output, STOP);
 	}
-	
-	output->playback_transition->current_frame_number = 0;
+	xmms_transition_reset(output->playback_transition);
 	// its a race i thinik
 	XMMS_DBG("Playback transition complete");
 	output->transition = FALSE;
@@ -1096,7 +1092,7 @@ xmms_output_zero (xmms_output_t *output, char *buffer, gint len)
 
 	gint ret;
 
-	if ((output->zero_frames) && (output->zero_frames_count > 0)){
+	if ((output->zero_frames) && (output->zero_frames_count > 0)) {
 		if (output->zero_frames_count > 0) {
 			memset(buffer, 0, len);
 			ret = len;
@@ -1107,7 +1103,6 @@ xmms_output_zero (xmms_output_t *output, char *buffer, gint len)
 			output->zero_frames_count = 0;
 			playback_transition_complete(output);
 		}
-		
 	}
 		
 	return ret;
@@ -1261,8 +1256,7 @@ xmms_transition_read (xmms_output_t *output, char *buffer, gint len, xmms_error_
 			if (output->playback_transition->next != NULL) { 
 				tranny = output->playback_transition->next;
 				while(tranny != NULL) {
-						XMMS_DBG ("proccin it up");
-						tranny->format = output->format;
+					tranny->format = output->format;
 					xmms_transition_plugin_method_process(tranny->plugin, tranny, buffer, len, err);
 					tranny = tranny->next;
 			

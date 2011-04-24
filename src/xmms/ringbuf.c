@@ -510,7 +510,6 @@ xmms_ringbuf_wait_used (const xmms_ringbuf_t *ringbuf, guint len, GMutex *mtx)
 	GTimeVal wait_time;
 
 	while ((xmms_ringbuf_bytes_used (ringbuf) < len) && !ringbuf->eos) {
-		XMMS_DBG("waiting");
 		g_get_current_time (&wait_time);
 		g_time_val_add (&wait_time, 30000);
 		g_cond_timed_wait (ringbuf->used_cond, mtx, &wait_time);
