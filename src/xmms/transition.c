@@ -362,8 +362,7 @@ xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transi
 	xmms_transition_plugin_method_new (plugin, transition);
 
 	transition->enabled = true;
-	
-		transition->total_frames = 50000;
+	transition->total_frames = 50000;
 	
 
 	return transition;

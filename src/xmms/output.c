@@ -1252,16 +1252,15 @@ xmms_transition_read (xmms_output_t *output, char *buffer, gint len, xmms_error_
 			output->playback_transition->format = output->format;
 			xmms_transition_plugin_method_process(output->playback_transition->plugin, output->playback_transition, buffer, len, err);
 
-			xmms_transition_t *tranny;
+			/* Process plugins in order */
+			xmms_transition_t *next_transition;
 			if (output->playback_transition->next != NULL) { 
-				tranny = output->playback_transition->next;
-				while(tranny != NULL) {
-					tranny->format = output->format;
-					xmms_transition_plugin_method_process(tranny->plugin, tranny, buffer, len, err);
-					tranny = tranny->next;
-			
+				next_transition = output->playback_transition->next;
+				while(next_transition != NULL) {
+					next_transition->format = output->format;
+					xmms_transition_plugin_method_process(next_transition->plugin, next_transition, buffer, len, err);
+					next_transition = next_transition->next;
 				}
-	
 			}	
 
 		} else {
@@ -1270,6 +1269,7 @@ xmms_transition_read (xmms_output_t *output, char *buffer, gint len, xmms_error_
 		}
 		
 		
+		/* If the transition is complete */
 		if (output->playback_transition->current_frame_number >= output->playback_transition->total_frames) {
 			if ((output->zero_frames) && (output->playback_transition->direction == OUT)) {
 				output->zero_frames_count = output->zero_frames;
