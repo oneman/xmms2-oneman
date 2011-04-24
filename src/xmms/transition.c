@@ -28,6 +28,7 @@ static xmms_transition_t *xmms_transition_add (xmms_transition_plugin_t *plugin,
 static void xmms_transition_remove (xmms_transition_t *transition);
 static xmms_transition_t *xmms_transition_new (xmms_transition_plugin_t *plugin);
 
+static void xmms_transition_destroy_final (xmms_transition_t *transition);
 
 static gboolean xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t *transition);
 static void xmms_transition_show(xmms_transition_t *transition);
@@ -64,7 +65,7 @@ xmms_transitions_destroy (xmms_transitions_t *transitions)
 	gint t;
 
 	for(t = 0; t < 7; t++) {
-		xmms_transition_destroy(transitions->transitions[t]);
+		xmms_transition_destroy_final(transitions->transitions[t]);
 	}
 	g_free (transitions);
 
@@ -512,13 +513,40 @@ xmms_transition_destroy (xmms_transition_t *transition)
 	}
 	if (transition->plugin != NULL) {
 		xmms_transition_plugin_method_destroy (transition->plugin, transition);
-		xmms_object_unref (transition->plugin);
+		//xmms_object_unref (transition->plugin);
 	}
 	
 	g_free (transition);
 
 }
 
+
+
+static void
+xmms_transition_destroy_final (xmms_transition_t *transition)
+{
+
+	g_return_if_fail (transition);
+
+	XMMS_DBG ("Destroying transition");
+
+	if (transition->next != NULL) {
+		xmms_transition_destroy_final(transition->next);
+	}
+	if (transition->in != NULL) {
+		xmms_transition_destroy_final(transition->in);
+	}	
+	if (transition->out != NULL) {
+		xmms_transition_destroy_final(transition->out);
+	}
+	if (transition->plugin != NULL) {
+		xmms_transition_plugin_method_destroy (transition->plugin, transition);
+		xmms_object_unref (transition->plugin);
+	}
+	
+	g_free (transition);
+
+}
 
 
  /** @} */
