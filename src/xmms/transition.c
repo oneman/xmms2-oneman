@@ -26,7 +26,13 @@
 
 static xmms_transition_t *xmms_transition_add (xmms_transition_plugin_t *plugin, xmms_transition_t *transition);
 static void xmms_transition_remove (xmms_transition_t *transition);
+
+static gboolean xmms_transition_last_was_enabled (xmms_transition_t *transition);
+
 static xmms_transition_t *xmms_transition_new (xmms_transition_plugin_t *plugin);
+static void xmms_transition_load (xmms_transition_t **transition, const gchar *transition_name, int stack_num);
+
+static void xmms_transition_load_config_value (xmms_transition_t **transition, const gchar *transition_name, const gchar *config_name, int stack_num, int dumbass);
 
 static void xmms_transition_destroy_final (xmms_transition_t *transition);
 
@@ -101,12 +107,151 @@ xmms_transitions_show (xmms_transitions_t *transitions)
 	gint t;
 
 	for(t = 0; t < 7; t++) {
-		xmms_transition_show(transitions->transitions[t]);
+		//xmms_transition_show(transitions->transitions[t]);
 	}
 	
 	
 
 }
+
+
+static void
+xmms_transition_load (xmms_transition_t **transition, const gchar *transition_name, int stack_num)
+{
+
+	xmms_config_property_t *cfg;
+	gchar key[64];
+	xmms_transition_plugin_t *plugin;
+	const gchar *name;
+
+				g_snprintf (key, sizeof (key), "transition.%s.%i", transition_name, stack_num);
+
+			if (stack_num == 0) {				
+				xmms_config_property_register (key, "fade", update_transitions_config, NULL);
+			} else {
+				xmms_config_property_register (key, "", update_transitions_config, NULL);
+			}
+
+				cfg = xmms_config_lookup (key);
+				name = xmms_config_property_get_string (cfg);
+
+				if (name[0]) {
+
+					XMMS_DBG ("Trying %s plugin for %s transition as effect number %d in stack", name, transition_name, stack_num);
+					plugin = (xmms_transition_plugin_t *)xmms_plugin_find (XMMS_PLUGIN_TYPE_TRANSITION, name);
+
+					if (plugin == NULL) {
+						XMMS_DBG ("Cant find plugin called %s", name);
+						*transition = xmms_transition_new(NULL);
+
+						return;
+					} else {
+						if (stack_num == 0) { 
+							*transition = xmms_transition_new(plugin);
+
+						} else {
+							xmms_transition_add_plugin (plugin, *transition);
+
+						}
+
+
+						XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_name, stack_num);
+					}
+					
+				} else {
+				
+					// config exists, but is empty
+					XMMS_DBG ("No value for %s transition plugin number %d in stack", transition_name,stack_num);
+					if (stack_num == 0) { 
+						*transition = xmms_transition_new(NULL);
+
+					} else {
+												xmms_transition_add_plugin (NULL, *transition);
+					}
+					
+					
+				}
+				
+			xmms_transition_load_config_value(transition, transition_name, "duration", stack_num, 0);
+			xmms_transition_load_config_value(transition, transition_name, "offset", stack_num, 1);			
+}
+
+
+static void
+xmms_transition_load_config_value(xmms_transition_t **transition, const gchar *transition_name, const gchar *config_name, int stack_num, int dumbass)
+{
+
+				xmms_transition_t *t_pointa;
+	xmms_transition_plugin_t *plugin;
+	xmms_config_property_t *cv;
+	
+	int t;
+	gint stack_no; // well call the 'chain' of plugins a 'stack' since we use that chain word elsewhere
+	xmms_config_property_t *cfg;
+	gchar key[64];
+	const gchar *name;
+	int duration;
+				
+				g_snprintf (key, sizeof (key), "transition.%s.%s.%i", transition_name, config_name, stack_num);
+		
+				if (dumbass == 0) {
+					xmms_config_property_register (key, "60000", update_transitions_config,
+				                               NULL);
+				} else {
+									xmms_config_property_register (key, "", update_transitions_config,
+				                               NULL);
+				
+				}
+
+				cfg = xmms_config_lookup (key);
+/*
+				if (!cfg) {
+					// no config exists
+					XMMS_DBG ("No config for duration of %s transition plugin number %d in stack", transition_strings[t], stack_num);
+									if (stack_no == 0) { 
+					//transitions->transitions[t]->total_frames = 50000;
+					}
+					break;
+				}
+	*/		
+				duration = xmms_config_property_get_int (cfg);
+
+				if (!(duration > 0)) {
+					// config exists, but is empty
+					XMMS_DBG ("No value for duration of %s transition plugin number %d in stack", transition_name,stack_num);
+								if (stack_num == 0) { 
+					//transitions->transitions[t]->total_frames = 50000;
+					}
+					//break;
+				}
+
+				// config exists and is something
+				XMMS_DBG ("Setting duration to %d for %s plugin for %s transition as effect number %d in stack", duration, name, transition_name, stack_num);
+
+
+				t_pointa = *transition;
+				int c;
+
+				for (c = 0; c != stack_num; c++) {
+
+					t_pointa = t_pointa->next;
+					
+
+					
+				}
+				
+
+				if (dumbass == 0) {
+									t_pointa->total_frames = duration;
+				} else {
+													t_pointa->offset = duration;
+				}
+				
+				/* end repeat */
+
+
+}
+
 
 xmms_transitions_t *
 xmms_transitions_new ()
@@ -117,7 +262,7 @@ xmms_transitions_new ()
 	const char *transition_strings[] = { "starting", "stopping", "pausing", "resuming", "seeking", "jumping", "advancing" };
 
 	XMMS_DBG ("Setting up transitions");
-
+				xmms_transition_t *t_pointa;
 	xmms_transition_plugin_t *plugin;
 	xmms_config_property_t *cv;
 	
@@ -126,7 +271,7 @@ xmms_transitions_new ()
 	xmms_config_property_t *cfg;
 	gchar key[64];
 	const gchar *name;
-		
+	int duration;
 
 	for(t = 0; t < 7; t++) {
 		
@@ -134,53 +279,22 @@ xmms_transitions_new ()
 		if (t < 4) { 
 		
 			for (stack_no = 0; TRUE; stack_no++) {
-
-				g_snprintf (key, sizeof (key), "transition.%s.%i", transition_strings[t], stack_no);
-		
-				if (true) {
-					xmms_config_property_register (key, "", update_transitions_config,
-				                               transitions);
-				}
-
-				cfg = xmms_config_lookup (key);
-
-				if (!cfg) {
-					// no config exists
-					XMMS_DBG ("No config for %s transition plugin number %d in stack", transition_strings[t], stack_no);
-									if (stack_no == 0) { 
-					transitions->transitions[t] = xmms_transition_new(NULL);
-					}
-					break;
-				}
 			
-				name = xmms_config_property_get_string (cfg);
 
-				if (!name[0]) {
-					// config exists, but is empty
-					XMMS_DBG ("No value for %s transition plugin number %d in stack", transition_strings[t],stack_no);
-								if (stack_no == 0) { 
-					transitions->transitions[t] = xmms_transition_new(NULL);
-					}
-					break;
-				}
 
-				// config exists and is something
-				XMMS_DBG ("Trying %s plugin for %s transition as effect number %d in stack", name, transition_strings[t], stack_no);
+				xmms_transition_load(&transitions->transitions[t], transition_strings[t], stack_no);
 				
-				plugin = (xmms_transition_plugin_t *)xmms_plugin_find (XMMS_PLUGIN_TYPE_TRANSITION, name);
-
-				if (plugin == NULL) {
-					XMMS_DBG ("Cant find plugin called %s", name);
-					transitions->transitions[t] = xmms_transition_new(NULL);
+				//if (transitions->transitions[t]->enabled == FALSE) {
+				if (xmms_transition_last_was_enabled(transitions->transitions[t]) == FALSE) {
+					// this is wrong because ... the enabled check needs to dive down
+					xmms_transition_load(&transitions->transitions[t], transition_strings[t], stack_no + 1);
 					break;
-				} else {
-					if (stack_no == 0) { 
-						transitions->transitions[t] = xmms_transition_new(plugin);
-					} else {
-						xmms_transition_add_plugin (plugin, transitions->transitions[t]);
-					}
-					XMMS_DBG ("%s plugin set for %s transition as effect %d in stack", name, transition_strings[t], stack_no);
 				}
+				
+
+				
+		
+				
 				
 			}
 		
@@ -193,10 +307,10 @@ xmms_transitions_new ()
 			
 				g_snprintf (key, sizeof (key), "transition.%s.mix", transition_strings[t]);
 		
-				if (true) {
-					xmms_config_property_register (key, "", update_transitions_config,
+
+					xmms_config_property_register (key, "crossfade", update_transitions_config,
 				                               transitions);
-				}
+	
 
 				cfg = xmms_config_lookup (key);
 
@@ -432,20 +546,13 @@ xmms_transition_add_plugin (xmms_transition_plugin_t *plugin, xmms_transition_t 
 	
 	XMMS_DBG ("Adding plugin to transition");
 
-	if (transition->plugin == NULL) {
-		XMMS_DBG ("Adding plugin");
-		transition->plugin = plugin;
-		xmms_transition_plugin_method_new (plugin, transition);
-		transition->enabled = true;
-		return TRUE;
-	} else {
 		if (transition->next == NULL) {
 			transition->next = xmms_transition_new (plugin);
 			return TRUE;
 		} else {
 			return xmms_transition_add_plugin (plugin, transition->next);
 		}
-	}
+	
 	XMMS_DBG ("A bad problem happened adding the plugin to the transition");
 	return FALSE;
 
@@ -456,7 +563,7 @@ void
 xmms_transition_reset (xmms_transition_t *transition)
 {
 	
-	XMMS_DBG ("Resetting transition");
+	//XMMS_DBG ("Resetting transition");
 	transition->current_frame_number = 0;
 	if (transition->next != NULL) {
 		xmms_transition_reset (transition->next);
@@ -464,11 +571,27 @@ xmms_transition_reset (xmms_transition_t *transition)
 
 }
 
+
+static gboolean xmms_transition_last_was_enabled (xmms_transition_t *transition)
+{
+
+	//XMMS_DBG ("lookin");
+
+	if (transition->next == NULL) {
+		return transition->enabled;
+	} else {
+		return xmms_transition_last_was_enabled (transition->next);
+	}
+
+}
+
+
+
 void
 xmms_transition_set_format (xmms_transition_t *transition, xmms_stream_type_t *format)
 {
 	
-	XMMS_DBG ("Setting transition format");
+	//XMMS_DBG ("Setting transition format");
 	transition->format = format;
 	if (transition->next != NULL) {
 		xmms_transition_set_format (transition->next, format);
@@ -476,6 +599,17 @@ xmms_transition_set_format (xmms_transition_t *transition, xmms_stream_type_t *f
 
 }
 
+void
+xmms_transition_set_direction (xmms_transition_t *transition, xmms_transition_direction_t direction)
+{
+	
+	XMMS_DBG ("Setting transition direction");
+	transition->direction = direction;
+	if (transition->next != NULL) {
+		xmms_transition_set_direction (transition->next, direction);
+	}
+
+}
 
 static void
 xmms_transition_remove (xmms_transition_t *transition)

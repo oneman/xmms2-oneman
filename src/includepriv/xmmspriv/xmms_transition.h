@@ -49,6 +49,7 @@ xmms_transition_t *xmms_transition_clone (xmms_transition_t *transition);
 void xmms_transition_destroy (xmms_transition_t *transition);
 void xmms_transition_reset (xmms_transition_t *transition);
 void xmms_transition_set_format (xmms_transition_t *transition, xmms_stream_type_t *format);
+void xmms_transition_set_direction (xmms_transition_t *transition, xmms_transition_direction_t direction);
 xmms_transitions_t *xmms_transitions_new (void);
 void xmms_transitions_destroy (xmms_transitions_t *transitions);
 

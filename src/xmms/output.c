@@ -1117,25 +1117,25 @@ xmms_transition_read (xmms_output_t *output, char *buffer, gint len, xmms_error_
 		case PAUSING:
 			output->playback_transition = output->transitions->transitions[PAUSING];
 			output->playback_transition->callback = 2;
-			output->playback_transition->direction = OUT;
+			xmms_transition_set_direction (output->playback_transition, OUT);
 			resetstatetemp = TRUE;
 			break;
 		case RESUMING:
 			output->playback_transition = output->transitions->transitions[RESUMING];
 			output->playback_transition->callback = 1;
-			output->playback_transition->direction = IN;
+			xmms_transition_set_direction (output->playback_transition, IN);
 			resetstatetemp = TRUE;
 			break;
 		case STARTING:
 			output->playback_transition = output->transitions->transitions[STARTING];
 			output->playback_transition->callback = 1;
-			output->playback_transition->direction = IN;
+			xmms_transition_set_direction (output->playback_transition, IN);
 			resetstatetemp = TRUE;
 			break;
 		case STOPPING:
 			output->playback_transition = output->transitions->transitions[STOPPING];
 			output->playback_transition->callback = 0;
-			output->playback_transition->direction = OUT;
+			xmms_transition_set_direction (output->playback_transition, OUT);
 			resetstatetemp = TRUE;
 			break;
 		case 666:
@@ -1197,30 +1197,9 @@ xmms_transition_read (xmms_output_t *output, char *buffer, gint len, xmms_error_
 			}
 		}
 		
-		
 		/* Run the newest dual source transition, which will recurse as needed */
 		
-		
 		ret = xmms_transition_plugin_method_mix(output->xtransition_transition->transition->plugin, output->xtransition_transition, buffer, len, err);
-		
-		
-// FIXME		ret = crossfade_slice(output->xtransition_transition, buffer, len);
-	/*	
-		
-		int z;
-		
-// FIXME bullshit
-		ret = xmms_ringbuf_read (output->reading_ringbuffer, buffer, len);
-		for (z = 0; z < output->num_xtransitions; z++) {
-			if (output->xtransitions[z].setup == TRUE) {
-				output->xtransitions[z].setup = FALSE;
-				xmms_transition_destroy(output->xtransitions[z].transition);
-				xmms_ringbuf_set_eor(output->xtransition_transition->outring, true);
-			}
-		}
-// FIXME end bullshit		
-		
-		*/
 		
 		if (ret != len)
 			XMMS_DBG ("oh knows");
@@ -1250,15 +1229,27 @@ xmms_transition_read (xmms_output_t *output, char *buffer, gint len, xmms_error_
 			}
 			
 			xmms_transition_set_format(output->playback_transition, output->format);
-			xmms_transition_plugin_method_process(output->playback_transition->plugin, output->playback_transition, buffer, len, err);
-
+			if (output->playback_transition->enabled) {
+				xmms_transition_plugin_method_process(output->playback_transition->plugin, output->playback_transition, buffer, len, err);
+			}
 			/* Process plugins in order */
 			xmms_transition_t *next_transition;
 			if (output->playback_transition->next != NULL) { 
 				next_transition = output->playback_transition->next;
 				while(next_transition != NULL) {
 					//next_transition->format = output->format;
-					xmms_transition_plugin_method_process(next_transition->plugin, next_transition, buffer, len, err);
+					if (next_transition->offset > 0) {
+						if (output->playback_transition->current_frame_number >= next_transition->offset) {
+							
+							if (next_transition->enabled) {
+								xmms_transition_plugin_method_process(next_transition->plugin, next_transition, buffer, len, err);	
+							}
+						}
+					} else {
+						if (next_transition->enabled) {
+							xmms_transition_plugin_method_process(next_transition->plugin, next_transition, buffer, len, err);
+						}
+					}
 					next_transition = next_transition->next;
 				}
 			}	
@@ -1817,6 +1808,12 @@ xmms_output_destroy (xmms_object_t *object)
 		g_thread_join (output->monitor_volume_thread);
 		output->monitor_volume_thread = NULL;
 	}
+	
+	
+	// FIXME evil terrible yay
+	
+	xmms_output_transition_set (output, STOPPING);
+	usleep(2000000);
 
 	xmms_output_filler_message (output, QUIT);
 	g_thread_join (output->filler_thread);
@@ -1920,7 +1917,7 @@ xmms_output_new (xmms_output_plugin_t *plugin, xmms_playlist_t *playlist)
 
 	output = xmms_object_new (xmms_output_t, xmms_output_destroy);
 
-	output->max = 16;	
+	output->max = 12;	
 
 	output->playlist = playlist;
 
@@ -1928,6 +1925,11 @@ xmms_output_new (xmms_output_plugin_t *plugin, xmms_playlist_t *playlist)
 
 	prop = xmms_config_property_register ("output.buffersize", "32767", NULL, NULL);
 	size = xmms_config_property_get_int (prop);
+	
+	// lolz
+	
+	size = 32767;
+	
 	XMMS_DBG ("Using buffersize %d", size);
 
 	output->filler_messages = xmms_ringbuf_new (128);
@@ -1947,8 +1949,8 @@ xmms_output_new (xmms_output_plugin_t *plugin, xmms_playlist_t *playlist)
 	output->transition = FALSE;
 	output->xtransition = 0;
 	output->xtransition_running = 0;
-	output->zero_frames = 56000;
-
+	//output->zero_frames = 56000;
+	output->zero_frames = 36000;
 	output->zero_frames_count = 0;
 
 	output->new_internal_filler_state = NOOP;

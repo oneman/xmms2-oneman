@@ -69,6 +69,7 @@ xmms_transition_direction_t direction; /* single source only */
 	gpointer plugin_data;
 	gint duration;
 	gint total_frames;
+	gint offset;
 	gint current_frame_number;
 	gboolean enabled; /* only for top level */
 	xmms_transition_t *next;

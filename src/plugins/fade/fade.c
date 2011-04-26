@@ -149,6 +149,12 @@ xmms_fade_process (xmms_transition_t *transition, gpointer buffer, gint len,
 
 	/* Fading in extra frames are ignored, Fading out they are zero'ed */
 	
+	if (transition->current_frame_number >= transition->total_frames) {
+		return 0;
+	}
+	
+	//XMMS_DBG("Processing %d - %d of %d", transition->current_frame_number, frames + transition->current_frame_number, transition->total_frames );
+	
 	if ((frames + transition->current_frame_number) >= transition->total_frames) {
 		extra_frames = frames - (transition->total_frames - transition->current_frame_number);
 		frames = transition->total_frames - transition->current_frame_number;
