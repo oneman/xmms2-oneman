@@ -226,7 +226,7 @@ xmms_transition_load_config_value(xmms_transition_t **transition, const gchar *t
 				} else {
 
 				// config exists and is something
-				XMMS_DBG ("Setting duration to %d for %s plugin for %s transition as effect number %d in stack", duration, name, transition_name, stack_num);
+				XMMS_DBG ("Setting duration to %d for plugin for %s transition as effect number %d in stack", duration, transition_name, stack_num);
 
 
 				t_pointa = *transition;
