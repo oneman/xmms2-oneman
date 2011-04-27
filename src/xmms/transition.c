@@ -223,7 +223,7 @@ xmms_transition_load_config_value(xmms_transition_t **transition, const gchar *t
 					//transitions->transitions[t]->total_frames = 50000;
 					}
 					//break;
-				}
+				} else {
 
 				// config exists and is something
 				XMMS_DBG ("Setting duration to %d for %s plugin for %s transition as effect number %d in stack", duration, name, transition_name, stack_num);
@@ -245,6 +245,8 @@ xmms_transition_load_config_value(xmms_transition_t **transition, const gchar *t
 									t_pointa->total_frames = duration;
 				} else {
 													t_pointa->offset = duration;
+				}
+				
 				}
 				
 				/* end repeat */
