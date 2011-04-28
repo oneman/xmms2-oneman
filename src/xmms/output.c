@@ -140,7 +140,7 @@ struct xmms_output_St {
 	xmms_transition_t *playback_transition;
 	xmms_xtransition_t *xtransition_transition;
 	
-	
+	gboolean newchain;
 	
 	/* Number of output frames for output 'plunger' config option? */
 	gint zero_frames;
@@ -802,6 +802,9 @@ xmms_output_filler (void *arg)
 			xmms_object_ref (chain);
 			XMMS_DBG ("New chain ready");
 			if(output->switchbuffer_seek == TRUE) {
+				if (output->filler_state != RUNSEEK) {
+					output->newchain = TRUE;
+				}
 				xmms_ringbuf_hotspot_set (output->next_ringbuffer, song_changed, song_changed_arg_free, hsarg);
 			} else {
 				xmms_ringbuf_hotspot_set (output->filling_ringbuffer, song_changed, song_changed_arg_free, hsarg);
@@ -846,8 +849,26 @@ xmms_output_filler (void *arg)
 		if (ret > 0) {
 		
 			if (output->switchbuffer_seek == TRUE) {
-				xmms_ringbuf_write_advance(output->next_ringbuffer, ret);
+			
+				// we shall kill this leading silence crap!
+				int i = 0;
+				int sum = 0;
+				if ((output->switchcount == 0) && (output->newchain == TRUE)) {
+					for (i = 0; i < len; ++i) {
+  						sum |= write_vector[0].buf[i];
+					}
+				
+					if (sum > 0) {
+						xmms_ringbuf_write_advance(output->next_ringbuffer, ret);
+						output->switchcount++;
+						output->newchain = FALSE;
+					} else {
+						XMMS_DBG ("Killed some leading silence on this jump");
+					}
+				} else {
+					xmms_ringbuf_write_advance(output->next_ringbuffer, ret);
 					output->switchcount++;
+				}
 					if (output->switchcount < 5) {
 						output->new_internal_filler_state = RUN;
 						continue;
@@ -1927,6 +1948,8 @@ xmms_output_new (xmms_output_plugin_t *plugin, xmms_playlist_t *playlist)
 	size = xmms_config_property_get_int (prop);
 	
 	// lolz
+	
+	output->newchain = false;
 	
 	size = 32767;
 	

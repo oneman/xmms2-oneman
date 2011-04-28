@@ -40,6 +40,7 @@ xmms_sample_frame_size_get (const xmms_stream_type_t *st)
 
 
 #include <glib.h>
+#include <stdlib.h>
 
 
 /*
@@ -47,7 +48,7 @@ xmms_sample_frame_size_get (const xmms_stream_type_t *st)
  */
 
 
-
+#define ENOUGH_CHANNELS_FOR_JEAN_LUC_PICARD 128
 
 
 /*
@@ -55,9 +56,11 @@ xmms_sample_frame_size_get (const xmms_stream_type_t *st)
  */
 
 typedef struct xmms_crossfade_data_St {
-	int final_frame[128];
-	float current_fade_amount[128];
-	int lastsign[128];
+	int lastsign[2][ENOUGH_CHANNELS_FOR_JEAN_LUC_PICARD];
+	float next_fade_amount, next_in_fade_amount;
+	float current_fade_amount[2][ENOUGH_CHANNELS_FOR_JEAN_LUC_PICARD];
+	int bias, bias_channel;
+	
 } xmms_crossfade_data_t;
 
 
@@ -166,7 +169,7 @@ transition = xtransition->transition;
 			transition->current_frame_number = 0;
 			//transition->total_frames = bytes / xmms_sample_frame_size_get(transition->format);
 
-			transition->total_frames = 40000;
+			transition->total_frames = 50000;
 
 
 			xtransition->setup = TRUE;
@@ -216,6 +219,7 @@ transition = xtransition->transition;
 		}
 		
 		ret = xmms_ringbuf_read (xtransition->inring, buffer, clen);
+		
 		//XMMS_DBG ("got new %d " , ret);
 		
 		//XMMS_DBG ("crossfading %d " , transition->current_frame_number + (len / xmms_sample_frame_size_get(transition->format)));
@@ -270,7 +274,9 @@ transition = xtransition->transition;
 int
 crossfade_slice_float(xmms_transition_t *transition, void *sample_buffer_from, void *sample_buffer_to, void *faded_sample_buffer, int len) {
 
-	/* ok lets handle those void * and hard code it to float for now, is it possible to cast without a new var?? */
+	xmms_crossfade_data_t *data;
+
+	data = xmms_transition_private_data_get (transition);
 	
 	float *samples_from = (float*)sample_buffer_from;
 	float *samples_to = (float*)sample_buffer_to;
@@ -285,51 +291,81 @@ crossfade_slice_float(xmms_transition_t *transition, void *sample_buffer_from, v
 	
 
 	int i ,j, n;
-	int sign[2][number_of_channels], lastsign[2][number_of_channels];
 	float next_fade_amount, next_in_fade_amount;
-	float current_fade_amount[2][number_of_channels];
+		float next_fade_amount_biased, next_in_fade_amount_biased;
+	int sign[2][number_of_channels];
 	
+	if (transition->current_frame_number == 0) {
 	for (n = 0; n < 2; n++) {
 		for (j = 0; j < number_of_channels; j++) {
-			current_fade_amount[n][j] = 0;
+			data->current_fade_amount[n][j] = 0;
 			sign[n][j] = 0;
-			lastsign[n][j] = -1;
+			data->lastsign[n][j] = -1;
 		}
 	}
+	}
 	
-	int fuckit;
-	fuckit = 0;
+	int tcfn, ttfn;
+	int bias, biased_cfn, biased_tfn, bias_channel;
+	tcfn = transition->current_frame_number;
+	ttfn = transition->total_frames;
+
+
+
+
+	if (transition->current_frame_number == 0) {
+		srand (time (NULL));
+		bias = (rand () % 6) + 1;
+		bias_channel = rand () % number_of_channels;
+		data->bias = bias;
+		data->bias_channel = bias_channel;
+		XMMS_DBG ("bias amount: %d bias channel: %d", bias, bias_channel);
+	} else {
+		bias = data->bias;
+		bias_channel = data->bias_channel;
+	}
+
+
+
+	biased_cfn = transition->current_frame_number * bias;
+	biased_tfn = transition->total_frames / bias;
+
+
+	int miss1, miss2;
 	
+	miss1 = true;
+		miss2 = true;
+
+
 
 	for (i = 0; i < frames_in_slice; i++) {
 		for (j = 0; j < number_of_channels; j++) {
 
 
-				next_in_fade_amount = cos(3.14159*0.5*(((float)(i + (transition->current_frame_number)))  + 0.5)/(float)transition->total_frames);
+				next_in_fade_amount = cos(3.14159*0.5*(((float)(i + (tcfn)))  + 0.5)/(float)ttfn);
 
 				next_in_fade_amount = next_in_fade_amount * next_in_fade_amount;
 				next_in_fade_amount = 1 - next_in_fade_amount;
-
-				
-				if (fuckit == 1) {
-					next_in_fade_amount = 100;
-				}
-							
-				
-				next_fade_amount = cos(3.14159*0.5*(((float)(i + (transition->current_frame_number))) + 0.5)/(float)transition->total_frames);
+											
+				next_fade_amount = cos(3.14159*0.5*(((float)(i + (tcfn))) + 0.5)/(float)ttfn);
 
 				next_fade_amount = next_fade_amount * next_fade_amount;
-
 				
-				if (fuckit == 1) {
-					next_fade_amount = 0;
-				}
+				
+				next_in_fade_amount_biased = cos(3.14159*0.5*(((float)((i * bias) + (biased_cfn)))  + 0.5)/(float)ttfn);
 
+				next_in_fade_amount_biased = next_in_fade_amount_biased * next_in_fade_amount_biased;
+				next_in_fade_amount_biased = 1 - next_in_fade_amount_biased;
+											
+				next_fade_amount_biased = cos(3.14159*0.5*(((float)((i * bias) + (biased_cfn))) + 0.5)/(float)ttfn);
+
+				next_fade_amount_biased = next_fade_amount_biased * next_fade_amount_biased;
+				
 			
 
-			if (current_fade_amount[0][j] == 0) {
-				current_fade_amount[1][j] = next_in_fade_amount;
-				current_fade_amount[0][j] = next_fade_amount;
+			if (transition->current_frame_number == 0) {
+				data->current_fade_amount[1][j] = next_in_fade_amount;
+				data->current_fade_amount[0][j] = next_fade_amount;
 			}
 		
 	
@@ -346,35 +382,65 @@ crossfade_slice_float(xmms_transition_t *transition, void *sample_buffer_from, v
 				sign[1][j] = 0;
 			}
 
+
+
+
+//if (((j == 1) && (transition->current_frame_number >= (bias))) || ((j == 0) && (transition->current_frame_number < (bias)))) 
+//{
 	for (n = 0; n < 2; n++) {	
 			
-			if(lastsign[n][j] == -1)
-				lastsign[n][j] = sign[n][j];
+			if(data->lastsign[n][j] == -1)
+				data->lastsign[n][j] = sign[n][j];
 			
-			if (sign[n][j] != lastsign[n][j]) {
+			if (sign[n][j] != data->lastsign[n][j]) {
 			 if(n == 1) {
 			// XMMS_DBG("fade amount in is: %f ", next_in_fade_amount);
-				current_fade_amount[n][j] = next_in_fade_amount;
+				if (j == bias_channel) {
+					if ((biased_cfn + (i * bias) ) <= (transition->total_frames)) {
+					 data->current_fade_amount[n][j] = next_in_fade_amount_biased;
+					 					miss1 = false;
+					}
+
+				} else {
+					data->current_fade_amount[n][j] = next_in_fade_amount;
+				}
 			} else {
-				current_fade_amount[n][j] = next_fade_amount;
+			
+				if (j == bias_channel) {
+					if ((biased_cfn + (i * bias) ) <= (transition->total_frames)) {
+					  data->current_fade_amount[n][j] = next_fade_amount_biased;
+					  					miss2 = false;
+					}
+					
+				} else {
+					data->current_fade_amount[n][j] = next_fade_amount;
+				}
+			
 			}
 				//XMMS_DBG ("Zero Crossing at");
-				if(current_fade_amount[n][j] < 0)
+			/*	if(current_fade_amount[n][j] < 0)
 					current_fade_amount[n][j] = 0;
 				if(current_fade_amount[n][j] > 100)
 					current_fade_amount[n][j] = 100;
+			*/
 			}
 
 		}
+		//}
+		
 
-			faded_samples[i*number_of_channels + j] = ((((samples_from[i*number_of_channels + j] * current_fade_amount[0][j]) ) + ((samples_to[i*number_of_channels + j] * current_fade_amount[1][j]) )) );
 
-			lastsign[0][j] = sign[0][j];
-			lastsign[1][j] = sign[1][j];
+			faded_samples[i*number_of_channels + j] = ((((samples_from[i*number_of_channels + j] * data->current_fade_amount[0][j]) ) + ((samples_to[i*number_of_channels + j] * data->current_fade_amount[1][j]) )) );
+
+			data->lastsign[0][j] = sign[0][j];
+			data->lastsign[1][j] = sign[1][j];
 
 		}
 		
 	}
+
+		if ((biased_cfn + (i * bias) ) <= (transition->total_frames) && ((miss1) || (miss2))) 
+			XMMS_DBG ("I missed");
 
 	return len;
 
