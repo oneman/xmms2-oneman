@@ -293,7 +293,7 @@ xmms_pitch_seek (xmms_xform_t *xform, gint64 offset,
 {
 	xmms_pitch_data_t *data;
 	data = xmms_xform_private_data_get (xform);
-	data->reverse = 1;
+	//data->reverse = 1;
 	data->offset = offset;
 	//g_string_erase (data->outbuf, 0, size);
 
