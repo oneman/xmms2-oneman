@@ -169,7 +169,13 @@ transition = xtransition->transition;
 			transition->current_frame_number = 0;
 			//transition->total_frames = bytes / xmms_sample_frame_size_get(transition->format);
 
-			transition->total_frames = 50000;
+
+		srand (time (NULL));
+		transition->total_frames = (rand () % 125000) + 25001;
+		XMMS_DBG ("frames: %d", transition->total_frames);
+
+
+			//transition->total_frames = 50000;
 
 
 			xtransition->setup = TRUE;

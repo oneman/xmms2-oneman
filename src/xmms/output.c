@@ -520,6 +520,12 @@ xmms_output_filler_check_for_message(xmms_output_t *output) {
 	int ret;
 	int buf[1];
 
+
+	if ((output->xtransition + output->xtransition_running + output->new_xtransition) > (output->max - 2)) {
+		XMMS_DBG ("Overloaded! Waiting for more resources before doing more 'stuff' ;p");
+		return NOOP;
+	}
+
 	ret = xmms_ringbuf_read(output->filler_messages, buf, 4);
 
 	if(ret > 0) {
@@ -558,6 +564,10 @@ xmms_output_filler_wait_for_message_or_space(xmms_output_t *output) {
 
 	while(TRUE) {
 		ret = xmms_ringbuf_timed_wait_used(output->filler_messages, 4, output->filler_mutex, 30);
+		if ((ret == TRUE) && ((output->xtransition + output->xtransition_running + output->new_xtransition) > (output->max - 2))) {
+			XMMS_DBG ("Overloaded! Waiting for more resources before doing more 'stuff' ;p");
+			ret = FALSE;
+		}
 		if (ret == TRUE) {
 			ret = xmms_ringbuf_read(output->filler_messages, buf, 4);
 			if(ret > 0) {
@@ -906,7 +916,7 @@ xmms_output_filler (void *arg)
 				XMMS_DBG ("Failed to get samples from chain, wanted %d", len);
 				xmms_error_reset (&err);
 			}
-			XMMS_DBG ("Got nothing more from chain, destroying it");
+			XMMS_DBG ("Got (%d) from chain, wanted.. %d destroying it", ret, len);
 			xmms_object_unref (chain);
 			chain = NULL;
 			/* A natural track progression or we have hit the end of the playlist */
