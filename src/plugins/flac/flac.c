@@ -611,6 +611,8 @@ xmms_flac_seek (xmms_xform_t *xform, gint64 samples,
 		xmms_log_error ("Trying to seek past end of stream");
 		return -1;
 	}
+	
+	g_string_erase (data->buffer, 0, data->buffer->len);
 
 	res = FLAC__stream_decoder_seek_absolute (data->flacdecoder,
 	                                          (FLAC__uint64) samples);

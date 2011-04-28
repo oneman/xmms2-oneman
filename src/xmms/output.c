@@ -140,6 +140,9 @@ struct xmms_output_St {
 	xmms_transition_t *playback_transition;
 	xmms_xtransition_t *xtransition_transition;
 	
+	gint playback_direction;
+	gint filler_position;
+	
 	gboolean newchain;
 	
 	/* Number of output frames for output 'plunger' config option? */
@@ -298,6 +301,10 @@ static void
 update_playtime (xmms_output_t *output, int advance)
 {
 	guint buffersize = 0;
+
+	if (output->playback_direction == 0) {
+		advance = 0 - advance;
+	}
 
 	g_atomic_int_add(&output->played, advance);
 
@@ -706,7 +713,7 @@ xmms_output_filler (void *arg)
 				XMMS_DBG ("Seeking failed: %s", xmms_error_message_get (&err));
 			} else {
 				XMMS_DBG ("Seek ok! %d", ret);
-
+	output->filler_position = ret;
 				output->filler_skip = output->filler_seek - ret;
 				if (output->filler_skip < 0) {
 					XMMS_DBG ("Seeked %d samples too far! Updating position...",
@@ -814,6 +821,8 @@ xmms_output_filler (void *arg)
 			if(output->switchbuffer_seek == TRUE) {
 				if (output->filler_state != RUNSEEK) {
 					output->newchain = TRUE;
+				} else {
+					output->filler_position = 0;
 				}
 				xmms_ringbuf_hotspot_set (output->next_ringbuffer, song_changed, song_changed_arg_free, hsarg);
 			} else {
@@ -854,7 +863,45 @@ xmms_output_filler (void *arg)
 			xmms_xform_this_read (chain, write_vector[0].buf, skip, &err);
 		}
 
-		ret = xmms_xform_this_read (chain, write_vector[0].buf, len, &err);
+		guint8 tempbuf[output->slice];
+		if (output->playback_direction == 1) {
+			ret = xmms_xform_this_read (chain, write_vector[0].buf, len, &err);
+			output->filler_position = output->filler_position + (ret / xmms_sample_frame_size_get(xmms_xform_outtype_get (chain)));
+		} else {
+			
+			if (output->filler_position == 0 ) {
+				//output->filler_position = 1024 * 512;
+			}
+			
+			ret = xmms_xform_this_seek (chain, output->filler_position, XMMS_XFORM_SEEK_SET, &err);
+			output->filler_position = ret; //(output->slice / xmms_sample_frame_size_get(output->format));
+			//output->filler_position = output->filler_position - ret; //(output->slice / xmms_sample_frame_size_get(output->format));
+			ret = xmms_xform_this_read (chain, tempbuf, len, &err);
+			output->filler_position = output->filler_position - (ret / xmms_sample_frame_size_get(output->format));
+			
+			XMMS_DBG ("I go reverse! %d %d %d", ret, len, output->filler_position);
+			
+			/*size_t i;
+
+    		for (i=0; i < ret; ++i)
+        		write_vector[0].buf[ret-1-i] = tempbuf[i];
+        	*/
+        		
+				gint16 i, j, f, fs;
+  				
+  				fs = xmms_sample_frame_size_get(output->format);
+  				
+ 				for(i=0, j=output->slice-fs ; i<output->slice ; i+=fs, j-=fs)
+ 				{ 
+ 				
+ 					for (f=0; f < fs; f++) {
+ 						write_vector[0].buf[j + f] = tempbuf[i + f];
+					}
+				}
+        		
+			
+			
+		}
 
 		if (ret > 0) {
 		
@@ -1471,8 +1518,14 @@ static void
 xmms_playback_client_pause (xmms_output_t *output, xmms_error_t *err)
 {
 	g_return_if_fail (output);
-
-	xmms_output_transition_set(output, PAUSING);
+	
+	if (output->playback_direction == 0) { 
+		output->playback_direction = 1;
+	} else {
+		output->playback_direction = 0;
+	}
+	
+	//xmms_output_transition_set(output, PAUSING);
 
 }
 
@@ -1959,6 +2012,8 @@ xmms_output_new (xmms_output_plugin_t *plugin, xmms_playlist_t *playlist)
 	
 	// lolz
 	
+	output->playback_direction = 1;
+	output->filler_position = 0;
 	output->newchain = false;
 	
 	size = 32767;
