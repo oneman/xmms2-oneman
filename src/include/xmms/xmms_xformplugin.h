@@ -281,6 +281,8 @@ gchar *xmms_xform_read_line (xmms_xform_t *xform, gchar *buf, xmms_error_t *err)
  */
 gint xmms_xform_read (xmms_xform_t *xform, gpointer buf, gint siz, xmms_error_t *err);
 
+gint xmms_xform_read_reverse (xmms_xform_t *xform, gpointer buf, gint siz, gint offset, xmms_error_t *err);
+
 /**
  * Change offset in stream.
  *

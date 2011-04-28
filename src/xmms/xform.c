@@ -1120,6 +1120,50 @@ xmms_xform_read (xmms_xform_t *xform, gpointer buf, gint siz, xmms_error_t *err)
 	return xmms_xform_this_read (xform->prev, buf, siz, err);
 }
 
+/* this is just a test mmkay */
+gint
+xmms_xform_read_reverse (xmms_xform_t *xform, gpointer buf, gint siz, gint offset, xmms_error_t *err)
+{
+
+	int the_perfect_number = 8192;
+
+	guint8 buffer[the_perfect_number];
+	
+	guint8 *bufa;
+
+	bufa = buf;
+	
+	gint ret;
+	
+	if ( siz != the_perfect_number ) {
+	
+		XMMS_DBG ("Oh gnos!!! %d", siz);
+	
+	}
+	
+	ret = xmms_xform_this_read (xform->prev, buffer, the_perfect_number, err);
+
+	gint16 i, j, f, fs;
+  				
+	fs = 8; //xmms_sample_frame_size_get(output->format);
+  				
+	for(i=0, j=the_perfect_number-fs ; i<the_perfect_number ; i+=fs, j-=fs)
+	{ 
+ 				
+ 					for (f=0; f < fs; f++) {
+ 						bufa[j + f] = buffer[i + f];
+					}
+				}
+
+	
+	g_return_val_if_fail (xform->prev, -1);
+	
+	xmms_xform_this_seek (xform->prev, offset, XMMS_XFORM_SEEK_SET, err);
+	
+	return ret;
+}
+
+
 gint64
 xmms_xform_seek (xmms_xform_t *xform, gint64 offset,
                  xmms_xform_seek_mode_t whence, xmms_error_t *err)
