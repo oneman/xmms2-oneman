@@ -39,6 +39,7 @@ typedef struct {
 
 	xmms_sample_t *iobuf;
 	xmms_sample_t *iobuf2;
+	xmms_sample_t *outbuf2;
 	gfloat *resbuf;
 	GString *outbuf;
 
@@ -280,14 +281,20 @@ xmms_pitch_read (xmms_xform_t *xform, void *buffer, gint len,
 
 		if (xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_FORMAT) == XMMS_SAMPLE_FORMAT_S16) {
 			src_float_to_short_array ((float *)data->resbuf, data->iobuf, data->resdata.output_frames_gen * data->channels);
+			data->outbuf2 = data->iobuf;
 		}
 			
 		if (xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_FORMAT) == XMMS_SAMPLE_FORMAT_S32) {
 			src_float_to_int_array ((float *)data->resbuf, data->iobuf, data->resdata.output_frames_gen * data->channels);
+			data->outbuf2 = data->iobuf;
+		}
+		
+		if (xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_FORMAT) == XMMS_SAMPLE_FORMAT_FLOAT) {
+			data->outbuf2 = data->resbuf;
 		}
 
 
-		g_string_append_len (data->outbuf, (gchar *)data->iobuf,
+		g_string_append_len (data->outbuf, (gchar *)data->outbuf2,
 		                     data->resdata.output_frames_gen *
 		                     data->channels *
 		                     data->in_sample_size);
