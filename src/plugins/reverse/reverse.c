@@ -34,7 +34,8 @@ typedef struct {
 	gint frame_size;
 	guint8 *buffer;
 	guint8 *waste_buffer;
-	gint offset;
+	gboolean first_read;
+	guint32 offset;
 	
 } xmms_reverse_data_t;
 
@@ -113,7 +114,7 @@ xmms_reverse_init (xmms_xform_t *xform)
 	data->buffer = g_malloc (40000);
 	data->waste_buffer = g_malloc (40000);
 	data->frame_size = xmms_sample_size_get(xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_FORMAT)) * xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_CHANNELS);
-
+	data->first_read = TRUE;
 	config = xmms_xform_config_lookup (xform, "enabled");
 	g_return_val_if_fail (config, FALSE);
 	xmms_config_property_callback_set (config, xmms_reverse_config_changed, data);
@@ -178,7 +179,8 @@ xmms_reverse_read (xmms_xform_t *xform, void *buffer, gint len,
 {
 	
 	xmms_reverse_data_t *data;
-	
+	gint duration, rate;
+	guint32 framecount;
 	guint ret, skip;
 	gint16 i, j, f;
 	guint8 *output_buffer;
@@ -189,12 +191,38 @@ xmms_reverse_read (xmms_xform_t *xform, void *buffer, gint len,
 	g_return_val_if_fail (data, -1);
 
 	if (!data->enabled) {
-		
+		if (data->first_read == TRUE) {
+			data->first_read = FALSE;
+		}
 		ret = xmms_xform_read (xform, buffer, len, error);
 		data->offset = data->offset + ret / data->frame_size;
 		return ret;
 			
 	} else {
+	
+		if (data->first_read == FALSE) {
+			if (data->offset <= 0) {
+				return 0;	
+			}
+		}
+	
+		if (data->first_read == TRUE) {
+			// seek to end on first read if enabled
+			xmms_xform_metadata_get_int(xform, "duration", &duration);
+			xmms_xform_metadata_get_int(xform, "samplerate", &rate);
+			framecount = (duration / 1000) * rate;
+			data->offset = framecount - (len / data->frame_size);
+			XMMS_DBG("Reverse effect seeking to end (%d) on start..", data->offset);
+			skip = xmms_xform_seek (xform, data->offset, XMMS_XFORM_SEEK_SET, error);
+			skip = data->offset - skip;
+			/* Skip kludge */
+			if (skip > 0) {
+				xmms_xform_read (xform, data->waste_buffer, skip, error);
+			}
+			data->first_read = FALSE;
+		}
+	
+	
 		
 		skip = 0;
 
