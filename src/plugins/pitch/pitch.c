@@ -80,7 +80,7 @@ xmms_pitch_plugin_setup (xmms_xform_plugin_t *xform_plugin)
 
 	xmms_xform_plugin_methods_set (xform_plugin, &methods);
 
-	xmms_xform_plugin_config_property_register (xform_plugin, "enabled", "100",
+	xmms_xform_plugin_config_property_register (xform_plugin, "enabled", "1",
 	                                            NULL, NULL);
 
 	xmms_xform_plugin_config_property_register (xform_plugin, "pitch", "100",
