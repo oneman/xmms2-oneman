@@ -1519,13 +1519,13 @@ xmms_playback_client_pause (xmms_output_t *output, xmms_error_t *err)
 {
 	g_return_if_fail (output);
 	
-	if (output->playback_direction == 0) { 
+/*	if (output->playback_direction == 0) { 
 		output->playback_direction = 1;
 	} else {
 		output->playback_direction = 0;
 	}
-	
-	//xmms_output_transition_set(output, PAUSING);
+*/	
+	xmms_output_transition_set(output, PAUSING);
 
 }
 
