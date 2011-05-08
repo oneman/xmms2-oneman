@@ -130,7 +130,7 @@ xmms_pitch_init (xmms_xform_t *xform)
 	priv->resbuf = g_malloc (priv->bufsize * sizeof (gfloat));
 	priv->outbuf = g_string_new (NULL);
 
-	priv->resampler = src_new (SRC_SINC_BEST_QUALITY, priv->channels, NULL);
+	priv->resampler = src_new (SRC_SINC_FASTEST, priv->channels, NULL);
 	g_return_val_if_fail (priv->resampler, FALSE);
 
 	xmms_xform_private_data_set (xform, priv);
