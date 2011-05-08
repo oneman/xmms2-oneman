@@ -26,7 +26,6 @@
 #include <math.h>
 #include <glib.h>
 
-
 #include <samplerate.h>
 
 
@@ -40,14 +39,14 @@ typedef struct {
 
 	xmms_sample_t *iobuf;
 	xmms_sample_t *iobuf2;
+	xmms_sample_t *outbuf2;
 	gfloat *resbuf;
 	GString *outbuf;
 
 	gfloat pitch;
 	SRC_DATA resdata;
 	gboolean enabled;
-	gboolean reverse;
-	gint offset;
+	
 } xmms_pitch_data_t;
 
 static gboolean xmms_pitch_plugin_setup (xmms_xform_plugin_t *xform_plugin);
@@ -82,10 +81,7 @@ xmms_pitch_plugin_setup (xmms_xform_plugin_t *xform_plugin)
 
 	xmms_xform_plugin_methods_set (xform_plugin, &methods);
 
-	xmms_xform_plugin_config_property_register (xform_plugin, "enabled", "100",
-	                                            NULL, NULL);
-	                                            
-	xmms_xform_plugin_config_property_register (xform_plugin, "reverse", "0",
+	xmms_xform_plugin_config_property_register (xform_plugin, "enabled", "1",
 	                                            NULL, NULL);
 
 	xmms_xform_plugin_config_property_register (xform_plugin, "pitch", "100",
@@ -134,9 +130,7 @@ xmms_pitch_init (xmms_xform_t *xform)
 	priv->resbuf = g_malloc (priv->bufsize * sizeof (gfloat));
 	priv->outbuf = g_string_new (NULL);
 
-	priv->reverse = FALSE;
-
-	priv->resampler = src_new (SRC_SINC_BEST_QUALITY, priv->channels, NULL);
+	priv->resampler = src_new (SRC_SINC_FASTEST, priv->channels, NULL);
 	g_return_val_if_fail (priv->resampler, FALSE);
 
 	xmms_xform_private_data_set (xform, priv);
@@ -145,11 +139,6 @@ xmms_pitch_init (xmms_xform_t *xform)
 	g_return_val_if_fail (config, FALSE);
 	xmms_config_property_callback_set (config, xmms_pitch_config_changed, priv);
 	priv->enabled = !!xmms_config_property_get_int (config);
-
-	config = xmms_xform_config_lookup (xform, "reverse");
-	g_return_val_if_fail (config, FALSE);
-	xmms_config_property_callback_set (config, xmms_pitch_config_changed, priv);
-	priv->reverse = !!xmms_config_property_get_int (config);
 
 	config = xmms_xform_config_lookup (xform, "pitch");
 	g_return_val_if_fail (config, FALSE);
@@ -183,9 +172,6 @@ xmms_pitch_destroy (xmms_xform_t *xform)
 	xmms_config_property_callback_remove (config, xmms_pitch_config_changed, data);
 
 	config = xmms_xform_config_lookup (xform, "pitch");
-	xmms_config_property_callback_remove (config, xmms_pitch_config_changed, data);
-	
-	config = xmms_xform_config_lookup (xform, "reverse");
 	xmms_config_property_callback_remove (config, xmms_pitch_config_changed, data);
 
 	src_delete (data->resampler);
@@ -221,9 +207,6 @@ xmms_pitch_config_changed (xmms_object_t *object, xmmsv_t *_data, gpointer userd
 	 */
 	name = strrchr (name, '.') + 1;
 
-	if (!strcmp (name, "reverse")) {
-		data->reverse = !!value; }
-
 	if (!strcmp (name, "enabled")) {
 		data->enabled = !!value; }
 	else if (!strcmp (name, "pitch") && value != 0) {
@@ -256,22 +239,13 @@ xmms_pitch_read (xmms_xform_t *xform, void *buffer, gint len,
 
 				int ret, read = 0;
 
-				while (read < data->bufsize * data->in_sample_size) {
-					if (data->reverse) {
-						
-						ret = xmms_xform_read_reverse (xform,
-					                       data->iobuf+read,
-					                       data->bufsize *
-					                       (data->in_sample_size)-read, data->offset,
-					                       error);   
-					} else {					                       
+				while (read < data->bufsize * data->in_sample_size) {					                       
 						ret = xmms_xform_read (xform,
 					                       data->iobuf+read,
 					                       data->bufsize *
 					                       (data->in_sample_size)-read,
 					                       error);
-					}
-					data->offset = data->offset + ret / (data->in_sample_size * data->channels);
+
 					if (ret <= 0) {
 						if (!ret && !read) {
 							/* end of file */
@@ -307,14 +281,20 @@ xmms_pitch_read (xmms_xform_t *xform, void *buffer, gint len,
 
 		if (xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_FORMAT) == XMMS_SAMPLE_FORMAT_S16) {
 			src_float_to_short_array ((float *)data->resbuf, data->iobuf, data->resdata.output_frames_gen * data->channels);
+			data->outbuf2 = data->iobuf;
 		}
 			
 		if (xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_FORMAT) == XMMS_SAMPLE_FORMAT_S32) {
 			src_float_to_int_array ((float *)data->resbuf, data->iobuf, data->resdata.output_frames_gen * data->channels);
+			data->outbuf2 = data->iobuf;
+		}
+		
+		if (xmms_xform_indata_get_int (xform, XMMS_STREAM_TYPE_FMT_FORMAT) == XMMS_SAMPLE_FORMAT_FLOAT) {
+			data->outbuf2 = data->resbuf;
 		}
 
 
-		g_string_append_len (data->outbuf, (gchar *)data->iobuf,
+		g_string_append_len (data->outbuf, (gchar *)data->outbuf2,
 		                     data->resdata.output_frames_gen *
 		                     data->channels *
 		                     data->in_sample_size);
@@ -332,10 +312,6 @@ static gint64
 xmms_pitch_seek (xmms_xform_t *xform, gint64 offset,
                    xmms_xform_seek_mode_t whence, xmms_error_t *err)
 {
-	xmms_pitch_data_t *data;
-	data = xmms_xform_private_data_get (xform);
-	data->offset = offset;
-
 	return xmms_xform_seek (xform, offset, whence, err);
 }
 
