@@ -31,11 +31,13 @@
 typedef struct {
 
 	gboolean enabled;
+	gboolean last_was_reverse;
 	gint frame_size;
 	guint8 *buffer;
 	guint8 *waste_buffer;
 	gboolean first_read;
 	guint32 offset;
+	gint last_ret;
 	
 } xmms_reverse_data_t;
 
@@ -194,8 +196,28 @@ xmms_reverse_read (xmms_xform_t *xform, void *buffer, gint len,
 		if (data->first_read == TRUE) {
 			data->first_read = FALSE;
 		}
+
+		if (data->last_was_reverse == TRUE) {
+		
+			skip = 0;
+
+			data->offset = data->offset - (data->last_ret / data->frame_size);
+
+			skip = xmms_xform_seek (xform, data->offset, XMMS_XFORM_SEEK_SET, error);
+
+			skip = data->offset - skip;
+		
+			/* Skip kludge */
+			if (skip > 0) {
+				xmms_xform_read (xform, data->waste_buffer, skip, error);
+			}
+
+		}
+
+		data->last_was_reverse = FALSE;
 		ret = xmms_xform_read (xform, buffer, len, error);
-		data->offset = data->offset + ret / data->frame_size;
+		data->last_ret = ret;
+		data->offset = data->offset + (ret / data->frame_size);
 		return ret;
 			
 	} else {
@@ -222,9 +244,20 @@ xmms_reverse_read (xmms_xform_t *xform, void *buffer, gint len,
 			data->first_read = FALSE;
 		}
 	
-	
+		data->last_was_reverse = TRUE;
 		
 		skip = 0;
+
+		data->offset = data->offset - (data->last_ret / data->frame_size);
+
+		skip = xmms_xform_seek (xform, data->offset, XMMS_XFORM_SEEK_SET, error);
+
+		skip = data->offset - skip;
+
+		/* Skip kludge */
+		if (skip > 0) {
+			xmms_xform_read (xform, data->waste_buffer, skip, error);
+		}
 
 		ret = xmms_xform_read (xform, data->buffer, len, error);
 
@@ -238,16 +271,7 @@ xmms_reverse_read (xmms_xform_t *xform, void *buffer, gint len,
 		}
 
 
-		data->offset = data->offset - ret / data->frame_size;
-
-		skip = xmms_xform_seek (xform, data->offset, XMMS_XFORM_SEEK_SET, error);
-
-		skip = data->offset - skip;
-
-		/* Skip kludge */
-		if (skip > 0) {
-			xmms_xform_read (xform, data->waste_buffer, skip, error);
-		}
+		data->last_ret = ret;
 
 		return ret;
 

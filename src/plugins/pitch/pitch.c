@@ -189,7 +189,7 @@ xmms_pitch_config_changed (xmms_object_t *object, xmmsv_t *_data, gpointer userd
 	xmms_config_property_t *val;
 	xmms_pitch_data_t *data;
 	const gchar *name;
-	gint value;
+	gfloat value;
 
 	g_return_if_fail (object);
 	g_return_if_fail (userdata);
@@ -198,9 +198,9 @@ xmms_pitch_config_changed (xmms_object_t *object, xmmsv_t *_data, gpointer userd
 	data = (xmms_pitch_data_t *) userdata;
 
 	name = xmms_config_property_get_name (val);
-	value = xmms_config_property_get_int (val);
+	value = xmms_config_property_get_float (val);
 
-	XMMS_DBG ("config value changed! %s => %d", name, value);
+	//XMMS_DBG ("config value changed! %s => %d", name, value);
 	/* we are passed the full config key, not just the last token,
 	 * which makes this code kinda ugly.
 	 * fix when bug 97 has been resolved
@@ -209,8 +209,8 @@ xmms_pitch_config_changed (xmms_object_t *object, xmmsv_t *_data, gpointer userd
 
 	if (!strcmp (name, "enabled")) {
 		data->enabled = !!value; }
-	else if (!strcmp (name, "pitch") && value != 0) {
-		data->pitch = 100.0 / (gfloat) value;
+	else if (!strcmp (name, "pitch") && (value > 0.1)) {
+		data->pitch = 100.0 / value;
 		data->resdata.src_ratio = data->pitch;
 	}
 }
