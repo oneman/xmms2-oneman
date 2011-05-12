@@ -201,7 +201,7 @@ xmms_reverse_read (xmms_xform_t *xform, void *buffer, gint len,
 		
 			skip = 0;
 
-			data->offset = data->offset - (data->last_ret / data->frame_size);
+			//data->offset = data->offset - (data->last_ret / data->frame_size);
 
 			skip = xmms_xform_seek (xform, data->offset, XMMS_XFORM_SEEK_SET, error);
 
