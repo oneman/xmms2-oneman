@@ -21,6 +21,7 @@
 #endif
 
 #include <string.h>
+#include <sys/mman.h>
 
 /** @defgroup Ringbuffer Ringbuffer
   * @ingroup XMMSServer
@@ -42,6 +43,7 @@ struct xmms_ringbuf_St {
 	volatile guint rd_index, wr_index;
 	gboolean eos;
 	gboolean eor;
+	int mlocked;
 	GQueue *hotspots;
 
 	GCond *free_cond, *used_cond, *eos_cond;
@@ -91,6 +93,10 @@ xmms_ringbuf_new (guint size)
 	ringbuf->buffer_size = size + 1;
 	ringbuf->buffer = g_malloc (ringbuf->buffer_size);
 
+	if (mlock (ringbuf->buffer, ringbuf->buffer_size)) {
+		ringbuf->mlocked = 1;
+	}
+
 	ringbuf->free_cond = g_cond_new ();
 	ringbuf->used_cond = g_cond_new ();
 	ringbuf->eos_cond = g_cond_new ();
@@ -113,6 +119,11 @@ xmms_ringbuf_destroy (xmms_ringbuf_t *ringbuf)
 	g_cond_free (ringbuf->free_cond);
 
 	g_queue_free (ringbuf->hotspots);
+	
+	if (ringbuf->mlocked) {
+		munlock (ringbuf->buffer, ringbuf->buffer_size);
+	}
+	
 	g_free (ringbuf->buffer);
 	g_free (ringbuf);
 }
