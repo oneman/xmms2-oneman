@@ -195,6 +195,8 @@ xmms_buffer_filler (void *arg)
 	
 	xmms_error_t error;
 	
+	int ret;
+	
 	char buf[4096];
 	
 	while (1) {
@@ -202,8 +204,12 @@ xmms_buffer_filler (void *arg)
 		//xmms_xform_read (data->xform, data->read_buffer, sizeof(data->read_buffer), &error);
 		//xmms_ringbuf_write_wait(data->ringbuffer, data->read_buffer, 4096, data->ringbuffer_mutex);
 	
-		xmms_xform_read (data->xform, buf, sizeof(buf), &error);
-		xmms_ringbuf_write_wait(data->ringbuffer, buf, 4096, data->ringbuffer_mutex);
+		ret = xmms_xform_read (data->xform, buf, sizeof(buf), &error);
+		if (ret == 0) {
+			xmms_ringbuf_set_eos (data->ringbuffer, true);
+			break;
+		}
+		xmms_ringbuf_write_wait(data->ringbuffer, buf, ret, data->ringbuffer_mutex);
 	
 		if (xmms_ringbuf_is_eor (data->ringbuffer)) {
 			break;
