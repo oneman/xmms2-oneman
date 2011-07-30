@@ -364,7 +364,7 @@ xmms_jack_process (jack_nframes_t frames, void *arg)
 					/* last_sign: 0 = unset, -1 neg, +1 pos */
 					
 					if (data->last_sign[j] == 0) {
-						if (tbuf[i*CHANNELS + j] > 0.0f) {
+						if (tbuf[j] > 0.0f) {
 							data->last_sign[j] = 1;
 						} else {
 							/* Zero counts as negative here, but its moot */
