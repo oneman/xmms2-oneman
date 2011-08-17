@@ -37,6 +37,7 @@ typedef struct xmms_jack_data_St {
 	jack_client_t *jack;
 	jack_port_t *ports[CHANNELS];
 	/*           ports */
+	guint buffersize;
 	gint chunksiz;
 	gboolean error;
 	gboolean running;
@@ -56,6 +57,7 @@ typedef struct xmms_jack_data_St {
 static gboolean xmms_jack_plugin_setup (xmms_output_plugin_t *plugin);
 static gboolean xmms_jack_new (xmms_output_t *output);
 static void xmms_jack_destroy (xmms_output_t *output);
+static guint xmms_jack_latency_get (xmms_output_t *output);
 static gboolean xmms_jack_status (xmms_output_t *output, xmms_playback_status_t status);
 static void xmms_jack_flush (xmms_output_t *output);
 static gboolean xmms_jack_volume_set (xmms_output_t *output, const gchar *channel, guint volume);
@@ -88,6 +90,7 @@ xmms_jack_plugin_setup (xmms_output_plugin_t *plugin)
 	methods.flush = xmms_jack_flush;
 	methods.volume_get = xmms_jack_volume_get;
 	methods.volume_set = xmms_jack_volume_set;
+	methods.latency_get = xmms_jack_latency_get;
 
 	xmms_output_plugin_methods_set (plugin, &methods);
 
@@ -136,6 +139,8 @@ xmms_jack_connect (xmms_output_t *output)
 	if (!data->jack) {
 		return FALSE;
 	}
+
+	data->buffersize = jack_get_buffer_size(data->jack);
 
 	jack_set_process_callback (data->jack, xmms_jack_process, output);
 	jack_on_shutdown (data->jack, xmms_jack_shutdown, output);
@@ -237,6 +242,19 @@ xmms_jack_destroy (xmms_output_t *output)
 	}
 
 	g_free (data);
+}
+
+static guint
+xmms_jack_latency_get (xmms_output_t *output)
+{
+
+	xmms_jack_data_t *data;
+
+	g_return_val_if_fail (output, FALSE);
+	data = xmms_output_private_data_get (output);
+	g_return_val_if_fail (data, FALSE);
+	
+	return data->buffersize * sizeof(float) * CHANNELS;
 }
 
 
@@ -341,6 +359,10 @@ xmms_jack_process (jack_nframes_t frames, void *arg)
 
 	for (i = 0; i < CHANNELS; i++) {
 		buf[i] = jack_port_get_buffer (data->ports[i], frames);
+	}
+
+	if (frames != data->buffersize) {
+		data->buffersize = frames;
 	}
 
 	toread = frames;
