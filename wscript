@@ -282,7 +282,7 @@ def configure(conf):
         conf.check_message("uncommitted changes", "", bool(changed))
         conf.env["VERSION"] = BASEVERSION + " (git commit: %s%s)" % (nam, dirty)
 
-    conf.env["CCFLAGS"] = Utils.to_list(conf.env["CCFLAGS"]) + ['-g', '-O0']
+    conf.env["CCFLAGS"] = Utils.to_list(conf.env["CCFLAGS"]) + ['-g', '-O3']
     for name in ('all',
                  'no-format-extra-args',
                  'no-format-zero-length',
