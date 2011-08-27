@@ -175,10 +175,10 @@ xmms_jack_new (xmms_output_t *output)
 	cv = xmms_output_config_lookup (output, "volume.right");
 	data->volume[1] = xmms_config_property_get_int (cv);
 
-	data->volume_actual[0] = (gfloat)(data->volume[0]/100.0);
+	data->volume_actual[0] = (gfloat)(data->volume[0] / 100.0);
 	data->volume_actual[0] *= data->volume_actual[0];
 	data->new_volume_actual[0] = data->volume_actual[0];
-	data->volume_actual[1] = (gfloat)(data->volume[1]/100.0);
+	data->volume_actual[1] = (gfloat)(data->volume[1] / 100.0);
 	data->volume_actual[1] *= data->volume_actual[1];
 	data->new_volume_actual[1] = data->volume_actual[1];
 
@@ -354,7 +354,7 @@ xmms_jack_process (jack_nframes_t frames, void *arg)
 			for (j = 0; j < CHANNELS; j++) {
 				if (data->new_volume_actual[j] == data->volume_actual[j]) {
 					for (i = 0; i < res; i++) {
-						buf[j][i] = (tbuf[i*CHANNELS + j] * data->volume_actual[j]);
+						buf[j][i] = (tbuf[i * CHANNELS + j] * data->volume_actual[j]);
 					}
 				} else {
 				
@@ -381,14 +381,14 @@ xmms_jack_process (jack_nframes_t frames, void *arg)
 								sign = -1;
 							}
 					
-							if ((sign != data->last_sign[j]) || (tbuf[i*CHANNELS + j] == 0.0f)) {						
+							if ((sign != data->last_sign[j]) || (tbuf[i * CHANNELS + j] == 0.0f)) {						
 						
 								data->volume_actual[j] = data->new_volume_actual[j];
 								data->last_sign[j] = 0;
 							}
 						}
 						
-						buf[j][i] = (tbuf[i*CHANNELS + j] * data->volume_actual[j]);
+						buf[j][i] = (tbuf[i * CHANNELS + j] * data->volume_actual[j]);
 						
 					}
 
@@ -444,7 +444,7 @@ xmms_jack_volume_set (xmms_output_t *output,
 
 	if (g_ascii_strcasecmp (channel_name, "Left") == 0) {
 		data->volume[0] = volume;
-		new_volume = (gfloat)(volume/100.0);
+		new_volume = (gfloat)(volume / 100.0);
 		new_volume *= new_volume;
 		data->new_volume_actual[0] = new_volume;
 		cv = xmms_output_config_lookup (output, "volume.left");
@@ -453,7 +453,7 @@ xmms_jack_volume_set (xmms_output_t *output,
 	} else {
 		/* If its not left, its right */
 		data->volume[1] = volume;
-		new_volume = (gfloat)(volume/100.0);
+		new_volume = (gfloat)(volume / 100.0);
 		new_volume *= new_volume;
 		data->new_volume_actual[1] = new_volume;
 		cv = xmms_output_config_lookup (output, "volume.right");
