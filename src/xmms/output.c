@@ -610,6 +610,8 @@ xmms_output_filler (void *arg)
 	xmms_output_song_changed_arg_t *hsarg;
 	xmms_medialib_session_t *session;
 
+	xmms_set_thread_name ("x2 out filler");
+
 	while (output->filler_state != QUIT) {
 
 		/* Check for new state, first internally determined, then externally commanded */
