@@ -291,6 +291,11 @@ xmms_jack_status (xmms_output_t *output, xmms_playback_status_t status)
 		data->running = TRUE;
 	} else {
 		data->running = FALSE;
+		
+		if (data->underruns) {
+			xmms_log_error ("Jack output paused or stopped.. will take the time to sadly report there has been %d output buffer underruns..", data->underruns);
+		}	
+		
 	}
 
 	return TRUE;
